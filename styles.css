@@ -1,0 +1,956 @@
+/* =========================================
+   VIDEO OBJECT TRACKER
+   styles.css
+   FILE 2 / 10
+========================================= */
+
+* {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+}
+
+html,
+body {
+    width: 100%;
+    min-height: 100%;
+    background: #101010;
+    color: #ffffff;
+    font-family:
+        Arial,
+        Helvetica,
+        sans-serif;
+}
+
+body {
+    overflow-x: hidden;
+}
+
+/* =========================================
+   APP
+========================================= */
+
+#app {
+    width: 100%;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+}
+
+/* =========================================
+   HEADER
+========================================= */
+
+.app-header {
+    width: 100%;
+    min-height: 64px;
+    padding: 12px 16px;
+
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+
+    background: #181818;
+    border-bottom: 1px solid #303030;
+
+    position: relative;
+    z-index: 20;
+}
+
+.app-title {
+    min-width: 0;
+}
+
+.app-title h1 {
+    font-size: 20px;
+    line-height: 1.2;
+    font-weight: 700;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+#trackingStatus {
+    display: inline-block;
+    margin-top: 4px;
+
+    font-size: 12px;
+    color: #9f9f9f;
+}
+
+/* =========================================
+   HEADER BUTTON
+========================================= */
+
+button {
+    border: 0;
+    outline: none;
+    cursor: pointer;
+
+    color: #ffffff;
+    background: #292929;
+
+    border-radius: 8px;
+
+    min-height: 40px;
+    padding: 8px 14px;
+
+    font-size: 14px;
+    font-weight: 600;
+
+    transition:
+        background 0.15s ease,
+        transform 0.1s ease,
+        opacity 0.15s ease;
+}
+
+button:hover {
+    background: #383838;
+}
+
+button:active {
+    transform: scale(0.97);
+}
+
+button:disabled {
+    opacity: 0.45;
+    cursor: not-allowed;
+}
+
+#uploadButton {
+    background: #1769ff;
+}
+
+#uploadButton:hover {
+    background: #0f5be0;
+}
+
+/* =========================================
+   WORKSPACE
+========================================= */
+
+.workspace {
+    width: 100%;
+    flex: 1;
+
+    display: flex;
+    flex-direction: column;
+
+    min-height: 0;
+}
+
+/* =========================================
+   VIDEO STAGE
+========================================= */
+
+.video-stage {
+    position: relative;
+
+    width: 100%;
+
+    /*
+     * The video will never be allowed to
+     * overflow the screen.
+     */
+    max-width: 100%;
+
+    /*
+     * Keep a sensible desktop height.
+     */
+    height: min(
+        calc(100vh - 250px),
+        720px
+    );
+
+    min-height: 260px;
+
+    margin: 0 auto;
+
+    display: flex;
+    align-items: center;
+    justify-content: center;
+
+    background: #050505;
+
+    overflow: hidden;
+
+    /*
+     * This is important for correct
+     * video/overlay coordinate handling.
+     */
+    isolation: isolate;
+}
+
+/* =========================================
+   VIDEO
+========================================= */
+
+#video {
+    /*
+     * Do NOT use width: 100% + height: 100%
+     * because that can distort the video.
+     */
+
+    display: block;
+
+    width: 100%;
+    height: 100%;
+
+    object-fit: contain;
+
+    background: #050505;
+
+    /*
+     * Prevent accidental native controls.
+     * Controls are handled by our UI.
+     */
+    outline: none;
+
+    /*
+     * The video itself is below the overlay.
+     */
+    position: relative;
+    z-index: 1;
+}
+
+/* =========================================
+   CANVAS OVERLAY
+========================================= */
+
+#overlayCanvas {
+    position: absolute;
+
+    /*
+     * JS will update these dimensions.
+     */
+    left: 0;
+    top: 0;
+
+    width: 100%;
+    height: 100%;
+
+    /*
+     * Do not block tracker mouse/touch events.
+     */
+    pointer-events: none;
+
+    z-index: 5;
+
+    /*
+     * Prevent browser gesture handling
+     * while interacting with overlay.
+     */
+    touch-action: none;
+}
+
+/* =========================================
+   TRACKER LAYER
+========================================= */
+
+.tracker-layer {
+    position: absolute;
+
+    left: 0;
+    top: 0;
+
+    width: 100%;
+    height: 100%;
+
+    z-index: 10;
+
+    pointer-events: none;
+
+    overflow: hidden;
+
+    touch-action: none;
+}
+
+/*
+ * Individual tracker elements are created
+ * by tracker.js.
+ */
+
+.tracker {
+    position: absolute;
+
+    pointer-events: auto;
+
+    user-select: none;
+    -webkit-user-select: none;
+
+    touch-action: none;
+
+    transform-origin: center center;
+
+    cursor: move;
+}
+
+/* =========================================
+   TRACKER SHAPES
+========================================= */
+
+.tracker.square {
+    border: 3px solid currentColor;
+    background: transparent;
+}
+
+.tracker.circle {
+    border: 3px solid currentColor;
+    background: transparent;
+    border-radius: 50%;
+}
+
+.tracker.triangle {
+    width: 0 !important;
+    height: 0 !important;
+
+    background: transparent;
+
+    border-left: 40px solid transparent;
+    border-right: 40px solid transparent;
+    border-bottom: 70px solid currentColor;
+}
+
+/*
+ * Selected tracker
+ */
+
+.tracker.selected {
+    outline: 2px dashed rgba(255, 255, 255, 0.9);
+    outline-offset: 5px;
+}
+
+/*
+ * Locked tracker
+ */
+
+.tracker.locked {
+    cursor: default;
+
+    filter:
+        drop-shadow(
+            0 0 5px
+            rgba(255, 255, 255, 0.6)
+        );
+}
+
+/*
+ * Locked tracker indicator
+ */
+
+.tracker.locked::after {
+    content: "🔒";
+
+    position: absolute;
+
+    top: -24px;
+    right: -4px;
+
+    font-size: 14px;
+
+    pointer-events: none;
+}
+
+/* =========================================
+   TRACKER HANDLE
+========================================= */
+
+.tracker-handle {
+    position: absolute;
+
+    width: 14px;
+    height: 14px;
+
+    right: -7px;
+    bottom: -7px;
+
+    background: #ffffff;
+
+    border: 2px solid #111111;
+
+    border-radius: 50%;
+
+    cursor:
+        nwse-resize;
+
+    pointer-events: auto;
+}
+
+/*
+ * Triangle tracker resize handle
+ */
+
+.tracker.triangle .tracker-handle {
+    right: -47px;
+    bottom: -17px;
+}
+
+/* =========================================
+   TRACKER DELETE BUTTON
+========================================= */
+
+.tracker-delete {
+    position: absolute;
+
+    top: -25px;
+    left: -25px;
+
+    width: 22px;
+    height: 22px;
+
+    min-height: 22px;
+
+    padding: 0;
+
+    display: flex;
+    align-items: center;
+    justify-content: center;
+
+    border-radius: 50%;
+
+    background: #d92828;
+
+    color: #ffffff;
+
+    font-size: 12px;
+
+    pointer-events: auto;
+}
+
+.tracker-delete:hover {
+    background: #ff3333;
+}
+
+/* =========================================
+   PLACEHOLDER
+========================================= */
+
+.video-placeholder {
+    position: absolute;
+
+    inset: 0;
+
+    z-index: 3;
+
+    display: flex;
+    flex-direction: column;
+
+    align-items: center;
+    justify-content: center;
+
+    gap: 12px;
+
+    color: #8d8d8d;
+
+    font-size: 16px;
+
+    pointer-events: none;
+}
+
+.placeholder-icon {
+    font-size: 48px;
+    opacity: 0.7;
+}
+
+/* =========================================
+   CONTROLS PANEL
+========================================= */
+
+.controls-panel {
+    width: 100%;
+
+    padding: 12px 16px 18px;
+
+    background: #181818;
+
+    border-top: 1px solid #303030;
+
+    display: flex;
+    flex-wrap: wrap;
+
+    align-items: center;
+
+    gap: 10px;
+
+    position: relative;
+    z-index: 20;
+}
+
+/* =========================================
+   CONTROL GROUP
+========================================= */
+
+.control-group {
+    display: flex;
+
+    flex-wrap: wrap;
+
+    align-items: center;
+
+    gap: 7px;
+}
+
+/* =========================================
+   CONTROL SECTION
+========================================= */
+
+.control-section {
+    display: flex;
+
+    align-items: center;
+
+    gap: 8px;
+
+    min-height: 40px;
+
+    padding: 0 4px;
+}
+
+.control-section > label {
+    color: #d5d5d5;
+
+    font-size: 13px;
+
+    white-space: nowrap;
+}
+
+/* =========================================
+   STYLE BUTTONS
+========================================= */
+
+.style-buttons {
+    display: flex;
+
+    flex-wrap: wrap;
+
+    gap: 6px;
+}
+
+.style-buttons button {
+    min-height: 36px;
+    padding: 6px 10px;
+}
+
+/* =========================================
+   ACTIVE BUTTON
+========================================= */
+
+button.active {
+    background: #1769ff;
+}
+
+button.active:hover {
+    background: #0f5be0;
+}
+
+/* =========================================
+   SELECT
+========================================= */
+
+select {
+    min-height: 36px;
+
+    padding: 6px 30px 6px 10px;
+
+    border: 1px solid #3a3a3a;
+
+    border-radius: 7px;
+
+    background: #252525;
+
+    color: #ffffff;
+
+    outline: none;
+
+    font-size: 13px;
+}
+
+select:focus {
+    border-color: #1769ff;
+}
+
+/* =========================================
+   COLOR INPUT
+========================================= */
+
+#colorPicker {
+    width: 42px;
+    height: 36px;
+
+    padding: 2px;
+
+    border: 1px solid #444444;
+
+    border-radius: 7px;
+
+    background: #252525;
+
+    cursor: pointer;
+}
+
+/* =========================================
+   RANGE INPUT
+========================================= */
+
+input[type="range"] {
+    width: 130px;
+
+    accent-color: #1769ff;
+
+    cursor: pointer;
+}
+
+/* =========================================
+   RANGE LABEL
+========================================= */
+
+.range-label {
+    display: flex;
+
+    align-items: center;
+
+    gap: 8px;
+}
+
+#sensitivityValue {
+    min-width: 42px;
+
+    color: #ffffff;
+
+    font-size: 13px;
+
+    text-align: right;
+}
+
+/* =========================================
+   TRACKER INFO
+========================================= */
+
+.tracker-info {
+    display: flex;
+
+    flex-wrap: wrap;
+
+    gap: 8px;
+
+    margin-left: auto;
+}
+
+.info-row {
+    display: flex;
+
+    align-items: center;
+
+    gap: 6px;
+
+    min-height: 32px;
+
+    padding: 5px 9px;
+
+    border-radius: 6px;
+
+    background: #242424;
+
+    font-size: 12px;
+}
+
+.info-row span {
+    color: #929292;
+}
+
+.info-row strong {
+    color: #ffffff;
+}
+
+/* =========================================
+   VIDEO TIME
+========================================= */
+
+.video-time {
+    display: flex;
+
+    align-items: center;
+
+    gap: 5px;
+
+    color: #bcbcbc;
+
+    font-size: 12px;
+
+    white-space: nowrap;
+}
+
+/* =========================================
+   EDIT MODE
+========================================= */
+
+body.edit-mode .tracker {
+    pointer-events: auto;
+}
+
+body:not(.edit-mode) .tracker {
+    pointer-events: none;
+}
+
+/* =========================================
+   LOCKED MODE
+========================================= */
+
+body.tracking-mode .tracker.locked {
+    pointer-events: none;
+}
+
+/* =========================================
+   MOBILE
+========================================= */
+
+@media (
+    max-width: 700px
+) {
+
+    .app-header {
+        min-height: 58px;
+
+        padding:
+            10px 12px;
+    }
+
+    .app-title h1 {
+        font-size: 16px;
+    }
+
+    #trackingStatus {
+        font-size: 11px;
+    }
+
+    #uploadButton {
+        min-height: 36px;
+
+        padding:
+            7px 10px;
+
+        font-size: 12px;
+    }
+
+    .video-stage {
+        /*
+         * More room for video on phones.
+         */
+        height:
+            calc(
+                100vh - 245px
+            );
+
+        min-height: 220px;
+    }
+
+    .controls-panel {
+        padding:
+            10px;
+
+        gap: 8px;
+
+        /*
+         * Controls can scroll horizontally
+         * instead of breaking the layout.
+         */
+        overflow-x: auto;
+
+        align-items: flex-start;
+    }
+
+    .control-group {
+        flex-shrink: 0;
+    }
+
+    .control-section {
+        flex-shrink: 0;
+
+        flex-direction: column;
+
+        align-items: flex-start;
+
+        gap: 5px;
+    }
+
+    .tracker-info {
+        width: 100%;
+
+        margin-left: 0;
+    }
+
+    input[type="range"] {
+        width: 110px;
+    }
+
+}
+
+/* =========================================
+   SMALL PHONES
+========================================= */
+
+@media (
+    max-width: 430px
+) {
+
+    .app-header {
+        flex-direction: column;
+
+        align-items: stretch;
+    }
+
+    .header-actions {
+        width: 100%;
+    }
+
+    #uploadButton {
+        width: 100%;
+    }
+
+    .video-stage {
+        height:
+            calc(
+                100vh - 285px
+            );
+
+        min-height: 200px;
+    }
+
+    .controls-panel {
+        display: grid;
+
+        grid-template-columns:
+            repeat(
+                2,
+                minmax(
+                    0,
+                    1fr
+                )
+            );
+    }
+
+    .control-group {
+        width: 100%;
+    }
+
+    .control-group button {
+        flex: 1;
+    }
+
+    .control-section {
+        width: 100%;
+    }
+
+    .style-buttons {
+        width: 100%;
+    }
+
+    .style-buttons button {
+        flex: 1;
+    }
+
+    .tracker-info {
+        grid-column:
+            1 / -1;
+    }
+
+}
+
+/* =========================================
+   LANDSCAPE MOBILE
+========================================= */
+
+@media (
+    max-height: 500px
+) and (
+    orientation: landscape
+) {
+
+    .app-header {
+        min-height: 48px;
+
+        padding:
+            6px 10px;
+    }
+
+    .app-title h1 {
+        font-size: 15px;
+    }
+
+    .video-stage {
+        height:
+            calc(
+                100vh - 150px
+            );
+
+        min-height: 180px;
+    }
+
+    .controls-panel {
+        padding:
+            6px 10px;
+
+        gap: 6px;
+    }
+
+}
+
+/* =========================================
+   ACCESSIBILITY
+========================================= */
+
+button:focus-visible,
+select:focus-visible,
+input:focus-visible {
+    outline:
+        2px solid #ffffff;
+
+    outline-offset: 2px;
+}
+
+/* =========================================
+   SAFE AREA — iPhone
+========================================= */
+
+@supports (
+    padding:
+    env(safe-area-inset-bottom)
+) {
+
+    .controls-panel {
+        padding-bottom:
+            calc(
+                18px +
+                env(
+                    safe-area-inset-bottom
+                )
+            );
+    }
+
+}
+
+/* =========================================
+   PREVENT TEXT SELECTION WHILE TRACKING
+========================================= */
+
+.tracker-layer,
+#overlayCanvas {
+    -webkit-user-select: none;
+    user-select: none;
+}
+
+/* =========================================
+   REDUCED MOTION
+========================================= */
+
+@media (
+    prefers-reduced-motion: reduce
+) {
+
+    * {
+        transition: none !important;
+        animation: none !important;
+    }
+
+}
