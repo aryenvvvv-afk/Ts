@@ -1,103 +1,131 @@
 "use strict";
 
 /*
+ * =========================================================
  * video.js
+ * Object Tracker
  *
- * Video handling + responsive coordinate conversion.
- * Tracker coordinates हमेशा displayed video area के हिसाब से
- * calculate किए जाते हैं, इसलिए अलग screen sizes पर भी सही रहेंगे.
+ * Handles:
+ * - Video file upload
+ * - Video loading
+ * - Responsive video sizing
+ * - Play / Pause / Stop
+ * - Video coordinate conversion
+ * - Letterbox / object-fit: contain handling
+ * - Resize handling
+ * =========================================================
  */
 
 class VideoController {
 
-    constructor(options = {}) {
+    constructor() {
 
-        this.video =
-            options.video || null;
+        this.video = null;
+        this.stage = null;
+        this.input = null;
 
-        this.container =
-            options.container || null;
+        this.emptyState = null;
+        this.loading = null;
+        this.errorBox = null;
 
-        this.fileInput =
-            options.fileInput || null;
+        this.objectUrl = null;
 
-        this.onLoaded =
-            typeof options.onLoaded === "function"
-                ? options.onLoaded
-                : null;
+        this.videoWidth = 0;
+        this.videoHeight = 0;
 
-        this.onTimeUpdate =
-            typeof options.onTimeUpdate === "function"
-                ? options.onTimeUpdate
-                : null;
+        this.displayWidth = 0;
+        this.displayHeight = 0;
 
-        this.onPlay =
-            typeof options.onPlay === "function"
-                ? options.onPlay
-                : null;
+        this.displayLeft = 0;
+        this.displayTop = 0;
 
-        this.onPause =
-            typeof options.onPause === "function"
-                ? options.onPause
-                : null;
+        this.loaded = false;
 
-        this.onStop =
-            typeof options.onStop === "function"
-                ? options.onStop
-                : null;
+        this.events =
+            new SimpleEventEmitter();
 
-        this.objectUrl =
-            null;
+        this.resizeObserver = null;
 
-        this.loaded =
-            false;
+        this.boundResize =
+            this.updateLayout.bind(this);
 
-        this._bindEvents();
+        this.boundMetadata =
+            this.handleMetadata.bind(this);
+
+        this.boundLoadedData =
+            this.handleLoadedData.bind(this);
+
+        this.boundError =
+            this.handleVideoError.bind(this);
+
+        this.init();
+
     }
 
 
-    /* =================================================
-       EVENTS
-    ================================================= */
+    /* =====================================================
+       INIT
+    ===================================================== */
 
-    _bindEvents() {
+    init() {
+
+        this.video =
+            getElement(
+                APP_CONFIG.ui.elements.video
+            );
+
+        this.stage =
+            getElement(
+                APP_CONFIG.ui.elements.videoStage
+            );
+
+        this.input =
+            getElement(
+                APP_CONFIG.ui.elements.videoInput
+            );
+
+        this.emptyState =
+            getElement(
+                APP_CONFIG.ui.elements.emptyState
+            );
+
+        this.loading =
+            getElement(
+                APP_CONFIG.ui.elements.videoLoading
+            );
+
+        this.errorBox =
+            getElement(
+                APP_CONFIG.ui.elements.videoError
+            );
+
 
         if (!this.video) {
+
+            console.error(
+                "Video element not found."
+            );
+
             return;
+
         }
+
 
         this.video.addEventListener(
             "loadedmetadata",
-            () => {
-
-                this.loaded =
-                    true;
-
-                this._resizeVideo();
-
-                if (this.onLoaded) {
-                    this.onLoaded(
-                        this.getVideoInfo()
-                    );
-                }
-
-            }
+            this.boundMetadata
         );
 
 
         this.video.addEventListener(
-            "timeupdate",
-            () => {
+            "loadeddata",
+            this.boundLoadedData
+        );
 
-                if (this.onTimeUpdate) {
 
-                    this.onTimeUpdate(
-                        this.video.currentTime
-                    );
-
-                }
-
-            }
+        this.video.addEventListener(
+            "error",
+            this.boundError
         );
 
 
@@ -105,9 +133,10 @@ class VideoController {
             "play",
             () => {
 
-                if (this.onPlay) {
-                    this.onPlay();
-                }
+                this.events.emit(
+                    "play",
+                    this.video
+                );
 
             }
         );
@@ -117,50 +146,154 @@ class VideoController {
             "pause",
             () => {
 
-                if (this.onPause) {
-                    this.onPause();
-                }
+                this.events.emit(
+                    "pause",
+                    this.video
+                );
 
             }
         );
+
+
+        this.video.addEventListener(
+            "ended",
+            () => {
+
+                this.events.emit(
+                    "ended",
+                    this.video
+                );
+
+            }
+        );
+
+
+        if (this.input) {
+
+            this.input.addEventListener(
+                "change",
+                event => {
+
+                    const files =
+                        event.target.files;
+
+                    if (
+                        files &&
+                        files.length
+                    ) {
+
+                        this.loadFile(
+                            files[0]
+                        );
+
+                    }
+
+                    /*
+                     * Same file को दोबारा select
+                     * करने की अनुमति.
+                     */
+                    event.target.value = "";
+
+                }
+            );
+
+        }
 
 
         window.addEventListener(
             "resize",
-            () => {
-
-                this._resizeVideo();
-
+            this.boundResize,
+            {
+                passive: true
             }
         );
+
+
+        /*
+         * ResizeObserver available होने पर
+         * stage के exact size को track करें.
+         */
+        if (
+            typeof ResizeObserver !==
+            "undefined" &&
+            this.stage
+        ) {
+
+            this.resizeObserver =
+                new ResizeObserver(
+                    () => {
+
+                        this.updateLayout();
+
+                    }
+                );
+
+
+            this.resizeObserver.observe(
+                this.stage
+            );
+
+        }
+
+
+        this.updateLayout();
 
     }
 
 
-    /* =================================================
+    /* =====================================================
        LOAD FILE
-    ================================================= */
+    ===================================================== */
 
-    loadFile(file) {
+    loadFile(
+        file
+    ) {
 
-        if (!file) {
+        if (!(file instanceof File)) {
+
+            this.showError(
+                "Please select a valid video file."
+            );
+
             return false;
+
         }
 
 
+        /*
+         * Browser द्वारा video/* files accept करें.
+         */
         if (
-            !file.type ||
+            file.type &&
             !file.type.startsWith("video/")
         ) {
 
+            this.showError(
+                "Please select a video file."
+            );
+
             return false;
 
         }
 
 
-        this._revokeObjectUrl();
+        this.showLoading();
+
+        this.clearError();
 
 
+        /*
+         * पुराने Object URL को revoke करें.
+         */
+        this.revokeObjectUrl();
+
+
+        /*
+         * नया local URL.
+         *
+         * Netlify पर upload की जरूरत नहीं.
+         * Browser local file को सीधे पढ़ सकता है.
+         */
         this.objectUrl =
             URL.createObjectURL(
                 file
@@ -171,11 +304,62 @@ class VideoController {
             false;
 
 
+        this.videoWidth =
+            0;
+
+        this.videoHeight =
+            0;
+
+
+        /*
+         * पहले src clear करें ताकि browser
+         * पुरानी video state use न करे.
+         */
+        this.video.removeAttribute(
+            "src"
+        );
+
+
+        this.video.load();
+
+
+        /*
+         * नया source.
+         */
         this.video.src =
             this.objectUrl;
 
 
+        /*
+         * Important:
+         * Mobile browsers के लिए.
+         */
+        this.video.playsInline =
+            true;
+
+        this.video.setAttribute(
+            "playsinline",
+            ""
+        );
+
+
+        this.video.setAttribute(
+            "webkit-playsinline",
+            ""
+        );
+
+
+        /*
+         * Browser को video decode करने के लिए
+         * फिर से load करें.
+         */
         this.video.load();
+
+
+        this.events.emit(
+            "loading",
+            file
+        );
 
 
         return true;
@@ -183,41 +367,658 @@ class VideoController {
     }
 
 
-    /* =================================================
-       LOAD URL
-    ================================================= */
+    /* =====================================================
+       METADATA
+    ===================================================== */
 
-    loadUrl(url) {
+    handleMetadata() {
 
-        if (!url) {
-            return false;
+        if (!this.video) {
+            return;
         }
 
 
-        this._revokeObjectUrl();
+        this.videoWidth =
+            this.video.videoWidth;
+
+        this.videoHeight =
+            this.video.videoHeight;
+
+
+        if (
+            this.videoWidth <= 0 ||
+            this.videoHeight <= 0
+        ) {
+
+            this.showError(
+                "Video dimensions could not be detected."
+            );
+
+            return;
+
+        }
+
+
+        this.loaded =
+            true;
+
+
+        this.updateLayout();
+
+
+        this.hideLoading();
+
+        this.hideEmptyState();
+
+        this.clearError();
+
+
+        this.events.emit(
+            "metadata",
+            this.getVideoInfo()
+        );
+
+    }
+
+
+    /* =====================================================
+       LOADED DATA
+    ===================================================== */
+
+    handleLoadedData() {
+
+        if (!this.video) {
+            return;
+        }
+
+
+        this.loaded =
+            true;
+
+
+        this.hideLoading();
+
+        this.hideEmptyState();
+
+        this.clearError();
+
+
+        this.updateLayout();
+
+
+        this.events.emit(
+            "loaded",
+            this.getVideoInfo()
+        );
+
+    }
+
+
+    /* =====================================================
+       VIDEO ERROR
+    ===================================================== */
+
+    handleVideoError() {
+
+        const mediaError =
+            this.video &&
+            this.video.error;
+
+
+        let message =
+            "Unable to load this video.";
+
+
+        if (mediaError) {
+
+            switch (
+                mediaError.code
+            ) {
+
+                case 1:
+                    message =
+                        "Video loading was aborted.";
+                    break;
+
+                case 2:
+                    message =
+                        "A network error occurred.";
+                    break;
+
+                case 3:
+                    message =
+                        "The video could not be decoded.";
+                    break;
+
+                case 4:
+                    message =
+                        "This video format is not supported by your browser.";
+                    break;
+
+            }
+
+        }
 
 
         this.loaded =
             false;
 
 
-        this.video.src =
-            url;
+        this.hideLoading();
 
 
-        this.video.load();
+        this.showError(
+            message
+        );
 
 
-        return true;
+        this.events.emit(
+            "error",
+            new Error(message)
+        );
 
     }
 
 
-    /* =================================================
-       PLAY
-    ================================================= */
+    /* =====================================================
+       UPDATE LAYOUT
+    ===================================================== */
 
-    play() {
+    updateLayout() {
+
+        if (
+            !this.video ||
+            !this.stage
+        ) {
+
+            return;
+
+        }
+
+
+        const stageRect =
+            this.stage.getBoundingClientRect();
+
+
+        const stageWidth =
+            stageRect.width;
+
+
+        const stageHeight =
+            stageRect.height;
+
+
+        if (
+            stageWidth <= 0 ||
+            stageHeight <= 0
+        ) {
+
+            return;
+
+        }
+
+
+        /*
+         * अगर video metadata available नहीं है,
+         * तो पूरे stage को display area मानें.
+         */
+        if (
+            this.videoWidth <= 0 ||
+            this.videoHeight <= 0
+        ) {
+
+            this.displayWidth =
+                stageWidth;
+
+            this.displayHeight =
+                stageHeight;
+
+            this.displayLeft =
+                0;
+
+            this.displayTop =
+                0;
+
+
+            this.events.emit(
+                "layout",
+                this.getLayout()
+            );
+
+
+            return;
+
+        }
+
+
+        /*
+         * object-fit: contain calculation.
+         *
+         * यही calculation tracker coordinate
+         * conversion में भी use होगी.
+         */
+
+        const videoRatio =
+            this.videoWidth /
+            this.videoHeight;
+
+
+        const stageRatio =
+            stageWidth /
+            stageHeight;
+
+
+        if (
+            videoRatio >
+            stageRatio
+        ) {
+
+            /*
+             * Video width के अनुसार fit होगा.
+             */
+
+            this.displayWidth =
+                stageWidth;
+
+            this.displayHeight =
+                stageWidth /
+                videoRatio;
+
+            this.displayLeft =
+                0;
+
+            this.displayTop =
+                (
+                    stageHeight -
+                    this.displayHeight
+                ) / 2;
+
+        }
+        else {
+
+            /*
+             * Video height के अनुसार fit होगा.
+             */
+
+            this.displayHeight =
+                stageHeight;
+
+            this.displayWidth =
+                stageHeight *
+                videoRatio;
+
+            this.displayTop =
+                0;
+
+            this.displayLeft =
+                (
+                    stageWidth -
+                    this.displayWidth
+                ) / 2;
+
+        }
+
+
+        this.events.emit(
+            "layout",
+            this.getLayout()
+        );
+
+    }
+
+
+    /* =====================================================
+       GET LAYOUT
+    ===================================================== */
+
+    getLayout() {
+
+        return {
+
+            videoWidth:
+                this.videoWidth,
+
+            videoHeight:
+                this.videoHeight,
+
+            stageWidth:
+                this.stage
+                    ? this.stage.clientWidth
+                    : 0,
+
+            stageHeight:
+                this.stage
+                    ? this.stage.clientHeight
+                    : 0,
+
+            displayWidth:
+                this.displayWidth,
+
+            displayHeight:
+                this.displayHeight,
+
+            displayLeft:
+                this.displayLeft,
+
+            displayTop:
+                this.displayTop
+
+        };
+
+    }
+
+
+    /* =====================================================
+       STAGE -> VIDEO COORDINATES
+    ===================================================== */
+
+    stageToVideo(
+        stageX,
+        stageY
+    ) {
+
+        if (
+            this.displayWidth <= 0 ||
+            this.displayHeight <= 0
+        ) {
+
+            return null;
+
+        }
+
+
+        const x =
+            (
+                stageX -
+                this.displayLeft
+            ) *
+            (
+                this.videoWidth /
+                this.displayWidth
+            );
+
+
+        const y =
+            (
+                stageY -
+                this.displayTop
+            ) *
+            (
+                this.videoHeight /
+                this.displayHeight
+            );
+
+
+        return {
+
+            x:
+                clamp(
+                    x,
+                    0,
+                    this.videoWidth
+                ),
+
+            y:
+                clamp(
+                    y,
+                    0,
+                    this.videoHeight
+                )
+
+        };
+
+    }
+
+
+    /* =====================================================
+       VIDEO -> STAGE COORDINATES
+    ===================================================== */
+
+    videoToStage(
+        videoX,
+        videoY
+    ) {
+
+        if (
+            this.videoWidth <= 0 ||
+            this.videoHeight <= 0
+        ) {
+
+            return null;
+
+        }
+
+
+        return {
+
+            x:
+                this.displayLeft +
+                (
+                    videoX /
+                    this.videoWidth
+                ) *
+                this.displayWidth,
+
+            y:
+                this.displayTop +
+                (
+                    videoY /
+                    this.videoHeight
+                ) *
+                this.displayHeight
+
+        };
+
+    }
+
+
+    /* =====================================================
+       VIDEO RECT -> STAGE RECT
+    ===================================================== */
+
+    videoRectToStage(
+        rect
+    ) {
+
+        if (!rect) {
+            return null;
+        }
+
+
+        const topLeft =
+            this.videoToStage(
+                rect.left,
+                rect.top
+            );
+
+
+        const bottomRight =
+            this.videoToStage(
+                rect.right,
+                rect.bottom
+            );
+
+
+        if (
+            !topLeft ||
+            !bottomRight
+        ) {
+
+            return null;
+
+        }
+
+
+        return {
+
+            left:
+                topLeft.x,
+
+            top:
+                topLeft.y,
+
+            right:
+                bottomRight.x,
+
+            bottom:
+                bottomRight.y,
+
+            width:
+                bottomRight.x -
+                topLeft.x,
+
+            height:
+                bottomRight.y -
+                topLeft.y
+
+        };
+
+    }
+
+
+    /* =====================================================
+       STAGE RECT -> VIDEO RECT
+    ===================================================== */
+
+    stageRectToVideo(
+        rect
+    ) {
+
+        if (!rect) {
+            return null;
+        }
+
+
+        const topLeft =
+            this.stageToVideo(
+                rect.left,
+                rect.top
+            );
+
+
+        const bottomRight =
+            this.stageToVideo(
+                rect.right,
+                rect.bottom
+            );
+
+
+        if (
+            !topLeft ||
+            !bottomRight
+        ) {
+
+            return null;
+
+        }
+
+
+        return {
+
+            left:
+                topLeft.x,
+
+            top:
+                topLeft.y,
+
+            right:
+                bottomRight.x,
+
+            bottom:
+                bottomRight.y,
+
+            width:
+                bottomRight.x -
+                topLeft.x,
+
+            height:
+                bottomRight.y -
+                topLeft.y
+
+        };
+
+    }
+
+
+    /* =====================================================
+       NORMALIZED VIDEO POSITION
+    ===================================================== */
+
+    videoToNormalized(
+        x,
+        y
+    ) {
+
+        if (
+            this.videoWidth <= 0 ||
+            this.videoHeight <= 0
+        ) {
+
+            return null;
+
+        }
+
+
+        return {
+
+            x:
+                clamp(
+                    x /
+                    this.videoWidth,
+                    0,
+                    1
+                ),
+
+            y:
+                clamp(
+                    y /
+                    this.videoHeight,
+                    0,
+                    1
+                )
+
+        };
+
+    }
+
+
+    /* =====================================================
+       NORMALIZED -> VIDEO
+    ===================================================== */
+
+    normalizedToVideo(
+        x,
+        y
+    ) {
+
+        return {
+
+            x:
+                clamp(
+                    x,
+                    0,
+                    1
+                ) *
+                this.videoWidth,
+
+            y:
+                clamp(
+                    y,
+                    0,
+                    1
+                ) *
+                this.videoHeight
+
+        };
+
+    }
+
+
+    /* =====================================================
+       PLAY
+    ===================================================== */
+
+    async play() {
 
         if (
             !this.video ||
@@ -229,38 +1030,37 @@ class VideoController {
         }
 
 
-        const promise =
-            this.video.play();
+        try {
 
+            await this.video.play();
 
-        if (
-            promise &&
-            typeof promise.catch ===
-            "function"
-        ) {
-
-            promise.catch(
-                error => {
-
-                    console.warn(
-                        "Video play failed:",
-                        error
-                    );
-
-                }
-            );
+            return true;
 
         }
+        catch (error) {
+
+            console.warn(
+                "Video play failed:",
+                error
+            );
 
 
-        return true;
+            this.events.emit(
+                "playError",
+                error
+            );
+
+
+            return false;
+
+        }
 
     }
 
 
-    /* =================================================
+    /* =====================================================
        PAUSE
-    ================================================= */
+    ===================================================== */
 
     pause() {
 
@@ -268,14 +1068,15 @@ class VideoController {
             return;
         }
 
+
         this.video.pause();
 
     }
 
 
-    /* =================================================
+    /* =====================================================
        STOP
-    ================================================= */
+    ===================================================== */
 
     stop() {
 
@@ -296,512 +1097,16 @@ class VideoController {
         catch (_) {}
 
 
-        if (this.onStop) {
-            this.onStop();
-        }
-
-    }
-
-
-    /* =================================================
-       RESET
-    ================================================= */
-
-    reset() {
-
-        this.stop();
-
-
-        this.loaded =
-            false;
-
-
-        this.video.removeAttribute(
-            "src"
-        );
-
-
-        this.video.load();
-
-    }
-
-
-    /* =================================================
-       CURRENT TIME
-    ================================================= */
-
-    getCurrentTime() {
-
-        if (!this.video) {
-            return 0;
-        }
-
-        return (
-            Number(
-                this.video.currentTime
-            ) || 0
+        this.events.emit(
+            "stop"
         );
 
     }
 
 
-    /* =================================================
-       DURATION
-    ================================================= */
-
-    getDuration() {
-
-        if (!this.video) {
-            return 0;
-        }
-
-        return (
-            Number(
-                this.video.duration
-            ) || 0
-        );
-
-    }
-
-
-    /* =================================================
-       VIDEO INFO
-    ================================================= */
-
-    getVideoInfo() {
-
-        if (!this.video) {
-
-            return {
-
-                width: 0,
-                height: 0,
-                duration: 0,
-                currentTime: 0
-
-            };
-
-        }
-
-
-        return {
-
-            width:
-                this.video.videoWidth,
-
-            height:
-                this.video.videoHeight,
-
-            duration:
-                this.video.duration || 0,
-
-            currentTime:
-                this.video.currentTime || 0
-
-        };
-
-    }
-
-
-    /* =================================================
-       RESPONSIVE VIDEO
-    ================================================= */
-
-    _resizeVideo() {
-
-        if (
-            !this.video ||
-            !this.container
-        ) {
-
-            return;
-
-        }
-
-
-        /*
-         * Video को container से बाहर जाने से रोकता है.
-         */
-        this.video.style.maxWidth =
-            "100%";
-
-        this.video.style.maxHeight =
-            "100%";
-
-        this.video.style.width =
-            "100%";
-
-        this.video.style.height =
-            "100%";
-
-        this.video.style.objectFit =
-            "contain";
-
-    }
-
-
-    /* =================================================
-       DISPLAY RECT
-    ================================================= */
-
-    getDisplayRect() {
-
-        if (!this.video) {
-            return null;
-        }
-
-
-        return this.video.getBoundingClientRect();
-
-    }
-
-
-    /* =================================================
-       SCREEN -> VIDEO COORDINATES
-    ================================================= */
-
-    screenToVideo(
-        screenX,
-        screenY
-    ) {
-
-        const rect =
-            this.getDisplayRect();
-
-
-        if (
-            !rect ||
-            rect.width <= 0 ||
-            rect.height <= 0
-        ) {
-
-            return {
-
-                x: 0,
-                y: 0
-
-            };
-
-        }
-
-
-        /*
-         * IMPORTANT:
-         *
-         * getBoundingClientRect() में पूरा
-         * displayed video box मिलता है।
-         *
-         * Object-fit: contain की वजह से video के
-         * अंदर letterbox area हो सकता है।
-         *
-         * इसलिए actual visible video rectangle
-         * निकालते हैं।
-         */
-
-        const visible =
-            this.getVisibleVideoRect();
-
-
-        if (!visible) {
-
-            return {
-
-                x: 0,
-                y: 0
-
-            };
-
-        }
-
-
-        const x =
-            (
-                screenX -
-                visible.left
-            ) *
-            (
-                this.video.videoWidth /
-                visible.width
-            );
-
-
-        const y =
-            (
-                screenY -
-                visible.top
-            ) *
-            (
-                this.video.videoHeight /
-                visible.height
-            );
-
-
-        return {
-
-            x:
-                this._clamp(
-                    x,
-                    0,
-                    this.video.videoWidth
-                ),
-
-            y:
-                this._clamp(
-                    y,
-                    0,
-                    this.video.videoHeight
-                )
-
-        };
-
-    }
-
-
-    /* =================================================
-       VIDEO -> SCREEN COORDINATES
-    ================================================= */
-
-    videoToScreen(
-        videoX,
-        videoY
-    ) {
-
-        const visible =
-            this.getVisibleVideoRect();
-
-
-        if (
-            !visible
-        ) {
-
-            return {
-
-                x: 0,
-                y: 0
-
-            };
-
-        }
-
-
-        return {
-
-            x:
-                visible.left +
-                (
-                    videoX /
-                    this.video.videoWidth
-                ) *
-                visible.width,
-
-            y:
-                visible.top +
-                (
-                    videoY /
-                    this.video.videoHeight
-                ) *
-                visible.height
-
-        };
-
-    }
-
-
-    /* =================================================
-       VIDEO SIZE -> SCREEN SIZE
-    ================================================= */
-
-    videoSizeToScreen(
-        width,
-        height
-    ) {
-
-        const visible =
-            this.getVisibleVideoRect();
-
-
-        if (
-            !visible ||
-            !this.video.videoWidth ||
-            !this.video.videoHeight
-        ) {
-
-            return {
-
-                width,
-                height
-
-            };
-
-        }
-
-
-        return {
-
-            width:
-                width *
-                (
-                    visible.width /
-                    this.video.videoWidth
-                ),
-
-            height:
-                height *
-                (
-                    visible.height /
-                    this.video.videoHeight
-                )
-
-        };
-
-    }
-
-
-    /* =================================================
-       GET VISIBLE VIDEO RECT
-    ================================================= */
-
-    getVisibleVideoRect() {
-
-        if (
-            !this.video ||
-            !this.video.videoWidth ||
-            !this.video.videoHeight
-        ) {
-
-            return null;
-
-        }
-
-
-        const rect =
-            this.video.getBoundingClientRect();
-
-
-        const videoAspect =
-            this.video.videoWidth /
-            this.video.videoHeight;
-
-
-        const boxAspect =
-            rect.width /
-            rect.height;
-
-
-        let width;
-        let height;
-        let left;
-        let top;
-
-
-        if (
-            boxAspect >
-            videoAspect
-        ) {
-
-            /*
-             * Side letterbox.
-             */
-            height =
-                rect.height;
-
-            width =
-                height *
-                videoAspect;
-
-            left =
-                rect.left +
-                (
-                    rect.width -
-                    width
-                ) /
-                2;
-
-            top =
-                rect.top;
-
-        }
-
-        else {
-
-            /*
-             * Top/bottom letterbox.
-             */
-            width =
-                rect.width;
-
-            height =
-                width /
-                videoAspect;
-
-            left =
-                rect.left;
-
-            top =
-                rect.top +
-                (
-                    rect.height -
-                    height
-                ) /
-                2;
-
-        }
-
-
-        return {
-
-            left,
-            top,
-            width,
-            height,
-
-            right:
-                left + width,
-
-            bottom:
-                top + height
-
-        };
-
-    }
-
-
-    /* =================================================
-       POINT INSIDE VIDEO
-    ================================================= */
-
-    isInsideVideo(
-        screenX,
-        screenY
-    ) {
-
-        const rect =
-            this.getVisibleVideoRect();
-
-
-        if (!rect) {
-            return false;
-        }
-
-
-        return (
-
-            screenX >= rect.left &&
-
-            screenX <= rect.right &&
-
-            screenY >= rect.top &&
-
-            screenY <= rect.bottom
-
-        );
-
-    }
-
-
-    /* =================================================
+    /* =====================================================
        SEEK
-    ================================================= */
+    ===================================================== */
 
     seek(
         seconds
@@ -818,12 +1123,16 @@ class VideoController {
 
 
         const duration =
-            this.getDuration();
+            Number.isFinite(
+                this.video.duration
+            )
+                ? this.video.duration
+                : 0;
 
 
         this.video.currentTime =
-            this._clamp(
-                Number(seconds) || 0,
+            clamp(
+                seconds,
                 0,
                 duration
             );
@@ -834,159 +1143,214 @@ class VideoController {
     }
 
 
-    /* =================================================
-       SEEK PERCENT
-    ================================================= */
+    /* =====================================================
+       GET CURRENT TIME
+    ===================================================== */
 
-    seekPercent(
-        percent
-    ) {
+    getCurrentTime() {
 
-        const duration =
-            this.getDuration();
+        return this.video
+            ? this.video.currentTime
+            : 0;
+
+    }
 
 
-        if (!duration) {
+    /* =====================================================
+       GET DURATION
+    ===================================================== */
+
+    getDuration() {
+
+        if (!this.video) {
+            return 0;
+        }
+
+
+        return Number.isFinite(
+            this.video.duration
+        )
+            ? this.video.duration
+            : 0;
+
+    }
+
+
+    /* =====================================================
+       IS PLAYING
+    ===================================================== */
+
+    isPlaying() {
+
+        if (!this.video) {
             return false;
         }
 
 
-        const value =
-            this._clamp(
-                Number(percent) || 0,
-                0,
-                1
-            );
-
-
-        this.video.currentTime =
-            duration *
-            value;
-
-
-        return true;
+        return (
+            !this.video.paused &&
+            !this.video.ended &&
+            this.video.readyState >= 2
+        );
 
     }
 
 
-    /* =================================================
-       FRAME STEP
-    ================================================= */
+    /* =====================================================
+       SHOW / HIDE LOADING
+    ===================================================== */
 
-    stepFrame(
-        fps = 30
+    showLoading() {
+
+        if (!this.loading) {
+            return;
+        }
+
+
+        this.loading.classList.remove(
+            "hidden"
+        );
+
+    }
+
+
+    hideLoading() {
+
+        if (!this.loading) {
+            return;
+        }
+
+
+        this.loading.classList.add(
+            "hidden"
+        );
+
+    }
+
+
+    /* =====================================================
+       SHOW / HIDE EMPTY STATE
+    ===================================================== */
+
+    hideEmptyState() {
+
+        if (!this.emptyState) {
+            return;
+        }
+
+
+        this.emptyState.classList.add(
+            "hidden"
+        );
+
+    }
+
+
+    showEmptyState() {
+
+        if (!this.emptyState) {
+            return;
+        }
+
+
+        this.emptyState.classList.remove(
+            "hidden"
+        );
+
+    }
+
+
+    /* =====================================================
+       ERROR
+    ===================================================== */
+
+    showError(
+        message
     ) {
 
-        if (
-            !this.video ||
-            !this.loaded
-        ) {
-
-            return false;
-
+        if (!this.errorBox) {
+            return;
         }
 
 
-        const frameTime =
-            1 /
-            Math.max(
-                1,
-                Number(fps) || 30
-            );
+        this.errorBox.textContent =
+            message;
 
 
-        this.video.currentTime =
-            this._clamp(
-                this.video.currentTime +
-                frameTime,
-                0,
-                this.getDuration()
-            );
-
-
-        return true;
+        this.errorBox.classList.remove(
+            "hidden"
+        );
 
     }
 
 
-    /* =================================================
-       REWIND FRAME
-    ================================================= */
+    clearError() {
 
-    previousFrame(
-        fps = 30
-    ) {
-
-        if (
-            !this.video ||
-            !this.loaded
-        ) {
-
-            return false;
-
+        if (!this.errorBox) {
+            return;
         }
 
 
-        const frameTime =
-            1 /
-            Math.max(
-                1,
-                Number(fps) || 30
-            );
+        this.errorBox.textContent =
+            "";
 
 
-        this.video.currentTime =
-            this._clamp(
-                this.video.currentTime -
-                frameTime,
-                0,
-                this.getDuration()
-            );
-
-
-        return true;
+        this.errorBox.classList.add(
+            "hidden"
+        );
 
     }
 
 
-    /* =================================================
-       CLEANUP
-    ================================================= */
+    /* =====================================================
+       VIDEO INFO
+    ===================================================== */
 
-    destroy() {
+    getVideoInfo() {
 
-        this.pause();
+        return {
 
+            width:
+                this.videoWidth,
 
-        this._revokeObjectUrl();
+            height:
+                this.videoHeight,
 
+            duration:
+                this.getDuration(),
 
-        if (this.video) {
+            currentTime:
+                this.getCurrentTime(),
 
-            this.video.removeAttribute(
-                "src"
-            );
+            loaded:
+                this.loaded,
 
-            this.video.load();
+            fileUrl:
+                this.objectUrl
 
-        }
+        };
 
     }
 
 
-    /* =================================================
-       REVOKE OBJECT URL
-    ================================================= */
+    /* =====================================================
+       OBJECT URL CLEANUP
+    ===================================================== */
 
-    _revokeObjectUrl() {
+    revokeObjectUrl() {
 
         if (
             this.objectUrl
         ) {
 
-            URL.revokeObjectURL(
-                this.objectUrl
-            );
+            try {
+
+                URL.revokeObjectURL(
+                    this.objectUrl
+                );
+
+            }
+            catch (_) {}
 
             this.objectUrl =
                 null;
@@ -996,51 +1360,183 @@ class VideoController {
     }
 
 
-    /* =================================================
-       CLAMP
-    ================================================= */
+    /* =====================================================
+       RESET
+    ===================================================== */
 
-    _clamp(
-        value,
-        min,
-        max
-    ) {
+    reset() {
 
-        return Math.max(
-            min,
-            Math.min(
-                max,
-                value
-            )
+        if (!this.video) {
+            return;
+        }
+
+
+        this.video.pause();
+
+
+        this.video.removeAttribute(
+            "src"
         );
+
+
+        this.video.load();
+
+
+        this.revokeObjectUrl();
+
+
+        this.loaded =
+            false;
+
+
+        this.videoWidth =
+            0;
+
+        this.videoHeight =
+            0;
+
+
+        this.displayWidth =
+            0;
+
+        this.displayHeight =
+            0;
+
+        this.displayLeft =
+            0;
+
+        this.displayTop =
+            0;
+
+
+        this.clearError();
+
+        this.hideLoading();
+
+        this.showEmptyState();
+
+
+        this.updateLayout();
+
+
+        this.events.emit(
+            "reset"
+        );
+
+    }
+
+
+    /* =====================================================
+       DESTROY
+    ===================================================== */
+
+    destroy() {
+
+        window.removeEventListener(
+            "resize",
+            this.boundResize
+        );
+
+
+        if (
+            this.resizeObserver
+        ) {
+
+            this.resizeObserver.disconnect();
+
+            this.resizeObserver =
+                null;
+
+        }
+
+
+        this.revokeObjectUrl();
+
+
+        if (this.video) {
+
+            this.video.removeEventListener(
+                "loadedmetadata",
+                this.boundMetadata
+            );
+
+            this.video.removeEventListener(
+                "loadeddata",
+                this.boundLoadedData
+            );
+
+            this.video.removeEventListener(
+                "error",
+                this.boundError
+            );
+
+        }
+
+
+        this.events.clear();
 
     }
 
 }
 
 
-/* =====================================================
-   GLOBAL EXPORT
-===================================================== */
+/* =========================================================
+   CREATE GLOBAL INSTANCE
+========================================================= */
 
-if (
-    typeof window !==
-    "undefined"
-) {
+let videoController =
+    null;
 
-    window.VideoController =
-        VideoController;
+
+function initializeVideoController() {
+
+    if (
+        videoController
+    ) {
+
+        return videoController;
+
+    }
+
+
+    videoController =
+        new VideoController();
+
+
+    /*
+     * Global access ताकि app.js,
+     * tracker.js और tracking engine
+     * इसी controller को use करें.
+     */
+    window.videoController =
+        videoController;
+
+
+    return videoController;
 
 }
 
 
+/* =========================================================
+   AUTO INITIALIZE
+========================================================= */
+
 if (
-    typeof module !==
-    "undefined" &&
-    module.exports
+    document.readyState ===
+    "loading"
 ) {
 
-    module.exports =
-        VideoController;
+    document.addEventListener(
+        "DOMContentLoaded",
+        initializeVideoController,
+        {
+            once: true
+        }
+    );
+
+}
+else {
+
+    initializeVideoController();
 
 }

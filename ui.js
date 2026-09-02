@@ -1,99 +1,519 @@
-/* =========================================
-   VIDEO OBJECT TRACKER
-   ui.js
-   FILE 7 / 10
-========================================= */
-
 "use strict";
 
-window.TrackerUI = class TrackerUI {
+/*
+ * =========================================================
+ * ui.js
+ * =========================================================
+ *
+ * UI controller:
+ * - Tracker selection
+ * - Add tracker
+ * - Shape selection
+ * - Color picker
+ * - Size
+ * - Lock / Unlock
+ * - Delete
+ * - Edit mode
+ * - Sensitivity
+ * - Tracking status
+ *
+ * यह file tracker.js और app.js के साथ काम करती है।
+ * =========================================================
+ */
 
-    constructor(options = {}) {
+class UIController {
 
-        this.videoController =
-            options.videoController || null;
+    constructor() {
+
+        this.app =
+            null;
 
         this.trackerManager =
-            options.trackerManager || null;
+            null;
 
-        this.elements = {};
+        this.trackingEngine =
+            null;
 
-        this.listeners = {};
+        this.editMode =
+            true;
 
-        this.isDraggingSensitivity =
+        this.currentShape =
+            "square";
+
+        this.currentColor =
+            "#00ff66";
+
+
+        this.elements =
+            {};
+
+
+        this.initialized =
             false;
-
-        this.cacheElements();
-
-        this.bindControls();
-
-        this.bindTrackerEvents();
-
-        this.bindVideoEvents();
-
-        this.updateUI();
 
     }
 
 
-    /* =====================================
-       EVENT SYSTEM
-    ====================================== */
+    /* =====================================================
+       INIT
+    ===================================================== */
 
-    on(
-        eventName,
-        callback
+    init() {
+
+        if (
+            this.initialized
+        ) {
+
+            return;
+
+        }
+
+
+        this.app =
+            window.app ||
+            null;
+
+
+        this.trackerManager =
+            window.trackerManager ||
+            null;
+
+
+        this.trackingEngine =
+            window.trackingEngine ||
+            null;
+
+
+        this.cacheElements();
+
+        this.bindEvents();
+
+        this.updateUI();
+
+        this.initialized =
+            true;
+
+    }
+
+
+    /* =====================================================
+       CACHE ELEMENTS
+    ===================================================== */
+
+    cacheElements() {
+
+        this.elements =
+            {
+
+                edit:
+                    this.find(
+                        "#editBtn",
+                        "#editModeBtn"
+                    ),
+
+                add:
+                    this.find(
+                        "#addTrackerBtn",
+                        "#addTracker"
+                    ),
+
+                lock:
+                    this.find(
+                        "#lockBtn",
+                        "#lock"
+                    ),
+
+                unlock:
+                    this.find(
+                        "#unlockBtn",
+                        "#unlock"
+                    ),
+
+                delete:
+                    this.find(
+                        "#deleteBtn",
+                        "#delete"
+                    ),
+
+                reset:
+                    this.find(
+                        "#resetBtn",
+                        "#reset"
+                    ),
+
+                square:
+                    this.find(
+                        "#squareBtn"
+                    ),
+
+                circle:
+                    this.find(
+                        "#circleBtn"
+                    ),
+
+                triangle:
+                    this.find(
+                        "#triangleBtn"
+                    ),
+
+                color:
+                    this.find(
+                        "#colorPicker",
+                        "#trackerColor"
+                    ),
+
+                size:
+                    this.find(
+                        "#trackerSize",
+                        "#sizeSlider"
+                    ),
+
+                sensitivity:
+                    this.find(
+                        "#sensitivity",
+                        "#sensitivitySlider"
+                    ),
+
+                sensitivityValue:
+                    this.find(
+                        "#sensitivityValue"
+                    ),
+
+                status:
+                    this.find(
+                        "#trackingStatus",
+                        "#status",
+                        ".tracking-status"
+                    ),
+
+                trackerList:
+                    this.find(
+                        "#trackerList",
+                        ".tracker-list"
+                    )
+
+            };
+
+    }
+
+
+    /* =====================================================
+       FIND
+    ===================================================== */
+
+    find(
+        ...selectors
     ) {
 
-        if (
-            typeof callback !==
-            "function"
+        for (
+            const selector
+            of selectors
         ) {
+
+            const element =
+                document.querySelector(
+                    selector
+                );
+
+
+            if (
+                element
+            ) {
+
+                return element;
+
+            }
+
+        }
+
+
+        return null;
+
+    }
+
+
+    /* =====================================================
+       EVENTS
+    ===================================================== */
+
+    bindEvents() {
+
+        this.bindEdit();
+
+        this.bindAdd();
+
+        this.bindLock();
+
+        this.bindUnlock();
+
+        this.bindDelete();
+
+        this.bindReset();
+
+        this.bindShapes();
+
+        this.bindColor();
+
+        this.bindSize();
+
+        this.bindSensitivity();
+
+
+        /*
+         * Tracker manager events.
+         */
+        if (
+            this.trackerManager
+        ) {
+
+            this.trackerManager.events.on(
+                "add",
+                tracker => {
+
+                    this.attachTracker(
+                        tracker
+                    );
+
+                    this.updateUI();
+
+                }
+            );
+
+
+            this.trackerManager.events.on(
+                "remove",
+                () => {
+
+                    this.updateTrackerList();
+
+                    this.updateUI();
+
+                }
+            );
+
+
+            this.trackerManager.events.on(
+                "select",
+                tracker => {
+
+                    this.updateSelectedTrackerUI(
+                        tracker
+                    );
+
+                    this.updateTrackerList();
+
+                }
+            );
+
+
+            this.trackerManager.events.on(
+                "lock",
+                tracker => {
+
+                    this.setStatus(
+                        `Locked to ${tracker.targetId}`
+                    );
+
+                    this.updateSelectedTrackerUI(
+                        tracker
+                    );
+
+                }
+            );
+
+
+            this.trackerManager.events.on(
+                "unlock",
+                tracker => {
+
+                    this.setStatus(
+                        "Tracker unlocked"
+                    );
+
+                    this.updateSelectedTrackerUI(
+                        tracker
+                    );
+
+                }
+            );
+
+
+            this.trackerManager.events.on(
+                "clear",
+                () => {
+
+                    this.updateTrackerList();
+
+                    this.updateUI();
+
+                }
+            );
+
+        }
+
+
+        /*
+         * Tracking engine events.
+         */
+        if (
+            this.trackingEngine
+        ) {
+
+            this.trackingEngine.events.on(
+                "frame",
+                data => {
+
+                    this.updateTrackingStatus(
+                        data
+                    );
+
+                }
+            );
+
+
+            this.trackingEngine.events.on(
+                "error",
+                error => {
+
+                    this.setStatus(
+                        error?.message ||
+                        "Tracking error"
+                    );
+
+                }
+            );
+
+        }
+
+    }
+
+
+    /* =====================================================
+       EDIT
+    ===================================================== */
+
+    bindEdit() {
+
+        const button =
+            this.elements.edit;
+
+
+        if (
+            !button
+        ) {
+
             return;
-        }
-
-        if (
-            !this.listeners[eventName]
-        ) {
-
-            this.listeners[eventName] =
-                [];
 
         }
 
-        this.listeners[eventName].push(
-            callback
+
+        button.addEventListener(
+            "click",
+            event => {
+
+                event.preventDefault();
+
+
+                this.editMode =
+                    !this.editMode;
+
+
+                document.body.classList.toggle(
+                    "edit-mode",
+                    this.editMode
+                );
+
+
+                button.classList.toggle(
+                    "active",
+                    this.editMode
+                );
+
+
+                this.setStatus(
+                    this.editMode
+                        ? "Edit mode"
+                        : "Tracking mode"
+                );
+
+
+                this.updateUI();
+
+            }
         );
 
     }
 
 
-    emit(
-        eventName,
-        data = null
-    ) {
+    /* =====================================================
+       ADD
+    ===================================================== */
 
-        const callbacks =
-            this.listeners[eventName];
+    bindAdd() {
 
-        if (!callbacks) {
+        const button =
+            this.elements.add;
+
+
+        if (
+            !button
+        ) {
+
             return;
+
         }
 
-        callbacks.forEach(
-            callback => {
 
-                try {
+        button.addEventListener(
+            "click",
+            event => {
 
-                    callback(
-                        data
+                event.preventDefault();
+
+
+                if (
+                    !this.app ||
+                    typeof this.app.addTracker !==
+                    "function"
+                ) {
+
+                    this.setStatus(
+                        "Tracker system not ready"
                     );
 
-                } catch (error) {
+                    return;
 
-                    console.error(
-                        "UI event error:",
-                        error
+                }
+
+
+                const tracker =
+                    this.app.addTracker({
+
+                        shape:
+                            this.currentShape,
+
+                        color:
+                            this.currentColor
+
+                    });
+
+
+                if (
+                    tracker
+                ) {
+
+                    this.attachTracker(
+                        tracker
+                    );
+
+
+                    this.trackerManager.select(
+                        tracker.id
+                    );
+
+
+                    this.setStatus(
+                        "Tracker added"
                     );
 
                 }
@@ -104,190 +524,390 @@ window.TrackerUI = class TrackerUI {
     }
 
 
-    /* =====================================
-       FIND ELEMENTS
-    ====================================== */
+    /* =====================================================
+       LOCK
+    ===================================================== */
 
-    cacheElements() {
+    bindLock() {
 
-        this.elements = {
-
-            videoInput:
-                document.getElementById(
-                    "videoInput"
-                ),
-
-            uploadButton:
-                document.getElementById(
-                    "uploadButton"
-                ),
-
-            playButton:
-                document.getElementById(
-                    "playButton"
-                ),
-
-            pauseButton:
-                document.getElementById(
-                    "pauseButton"
-                ),
-
-            stopButton:
-                document.getElementById(
-                    "stopButton"
-                ),
-
-            editButton:
-                document.getElementById(
-                    "editButton"
-                ),
-
-            lockButton:
-                document.getElementById(
-                    "lockButton"
-                ),
-
-            unlockButton:
-                document.getElementById(
-                    "unlockButton"
-                ),
-
-            resetButton:
-                document.getElementById(
-                    "resetButton"
-                ),
-
-            deleteButton:
-                document.getElementById(
-                    "deleteButton"
-                ),
-
-            squareButton:
-                document.getElementById(
-                    "squareButton"
-                ),
-
-            circleButton:
-                document.getElementById(
-                    "circleButton"
-                ),
-
-            triangleButton:
-                document.getElementById(
-                    "triangleButton"
-                ),
-
-            addTrackerButton:
-                document.getElementById(
-                    "addTrackerButton"
-                ),
-
-            colorPicker:
-                document.getElementById(
-                    "colorPicker"
-                ),
-
-            sensitivity:
-                document.getElementById(
-                    "sensitivity"
-                ),
-
-            sensitivityValue:
-                document.getElementById(
-                    "sensitivityValue"
-                ),
-
-            trackingStatus:
-                document.getElementById(
-                    "trackingStatus"
-                ),
-
-            currentTime:
-                document.getElementById(
-                    "currentTime"
-                ),
-
-            duration:
-                document.getElementById(
-                    "duration"
-                ),
-
-            progress:
-                document.getElementById(
-                    "progress"
-                ),
-
-            editStatus:
-                document.getElementById(
-                    "editStatus"
-                ),
-
-            trackerCount:
-                document.getElementById(
-                    "trackerCount"
-                ),
-
-            selectedTracker:
-                document.getElementById(
-                    "selectedTracker"
-                ),
-
-            styleSelector:
-                document.getElementById(
-                    "styleSelector"
-                )
-
-        };
-
-    }
+        const button =
+            this.elements.lock;
 
 
-    /* =====================================
-       BIND BUTTONS
-    ====================================== */
+        if (
+            !button
+        ) {
 
-    bindControls() {
-
-        const e =
-            this.elements;
-
-
-        /* ---------------------------------
-           VIDEO UPLOAD
-        --------------------------------- */
-
-        if (e.uploadButton) {
-
-            e.uploadButton.addEventListener(
-                "click",
-                () => {
-
-                    e.videoInput?.click();
-
-                }
-            );
+            return;
 
         }
 
 
-        if (e.videoInput) {
+        button.addEventListener(
+            "click",
+            event => {
 
-            e.videoInput.addEventListener(
-                "change",
+                event.preventDefault();
+
+
+                const tracker =
+                    this.getSelectedTracker();
+
+
+                if (
+                    !tracker
+                ) {
+
+                    this.setStatus(
+                        "Select a tracker first"
+                    );
+
+                    return;
+
+                }
+
+
+                if (
+                    tracker.locked
+                ) {
+
+                    this.setStatus(
+                        "Tracker already locked"
+                    );
+
+                    return;
+
+                }
+
+
+                /*
+                 * app.js का lock logic use करें।
+                 */
+                if (
+                    this.app &&
+                    typeof this.app.lockSelectedTracker ===
+                    "function"
+                ) {
+
+                    this.app.lockSelectedTracker();
+
+                    return;
+
+                }
+
+
+                /*
+                 * Fallback.
+                 */
+                const detections =
+                    this.trackingEngine
+                        ?.detections ||
+                    [];
+
+
+                if (
+                    detections.length === 0
+                ) {
+
+                    this.setStatus(
+                        "No object detected"
+                    );
+
+                    return;
+
+                }
+
+
+                const target =
+                    this.findTargetNearTracker(
+                        tracker,
+                        detections
+                    );
+
+
+                if (
+                    !target
+                ) {
+
+                    this.setStatus(
+                        "Place tracker on an object first"
+                    );
+
+                    return;
+
+                }
+
+
+                const success =
+                    tracker.lock(
+                        target
+                    );
+
+
+                if (
+                    success
+                ) {
+
+                    this.setStatus(
+                        `Locked to ${target.id}`
+                    );
+
+                }
+
+            }
+        );
+
+    }
+
+
+    /* =====================================================
+       UNLOCK
+    ===================================================== */
+
+    bindUnlock() {
+
+        const button =
+            this.elements.unlock;
+
+
+        if (
+            !button
+        ) {
+
+            return;
+
+        }
+
+
+        button.addEventListener(
+            "click",
+            event => {
+
+                event.preventDefault();
+
+
+                const tracker =
+                    this.getSelectedTracker();
+
+
+                if (
+                    !tracker
+                ) {
+
+                    this.setStatus(
+                        "Select a tracker first"
+                    );
+
+                    return;
+
+                }
+
+
+                tracker.unlock();
+
+
+                this.setStatus(
+                    "Tracker unlocked"
+                );
+
+
+                this.updateSelectedTrackerUI(
+                    tracker
+                );
+
+            }
+        );
+
+    }
+
+
+    /* =====================================================
+       DELETE
+    ===================================================== */
+
+    bindDelete() {
+
+        const button =
+            this.elements.delete;
+
+
+        if (
+            !button
+        ) {
+
+            return;
+
+        }
+
+
+        button.addEventListener(
+            "click",
+            event => {
+
+                event.preventDefault();
+
+
+                const tracker =
+                    this.getSelectedTracker();
+
+
+                if (
+                    !tracker
+                ) {
+
+                    return;
+
+                }
+
+
+                this.trackerManager.remove(
+                    tracker.id
+                );
+
+
+                this.setStatus(
+                    "Tracker deleted"
+                );
+
+            }
+        );
+
+    }
+
+
+    /* =====================================================
+       RESET
+    ===================================================== */
+
+    bindReset() {
+
+        const button =
+            this.elements.reset;
+
+
+        if (
+            !button
+        ) {
+
+            return;
+
+        }
+
+
+        button.addEventListener(
+            "click",
+            event => {
+
+                event.preventDefault();
+
+
+                if (
+                    this.trackerManager
+                ) {
+
+                    this.trackerManager.clear();
+
+                }
+
+
+                if (
+                    this.trackingEngine
+                ) {
+
+                    this.trackingEngine.reset();
+
+                }
+
+
+                this.setStatus(
+                    "Reset"
+                );
+
+
+                this.updateUI();
+
+            }
+        );
+
+    }
+
+
+    /* =====================================================
+       SHAPES
+    ===================================================== */
+
+    bindShapes() {
+
+        const shapes =
+            [
+
+                [
+                    this.elements.square,
+                    "square"
+                ],
+
+                [
+                    this.elements.circle,
+                    "circle"
+                ],
+
+                [
+                    this.elements.triangle,
+                    "triangle"
+                ]
+
+            ];
+
+
+        for (
+            const [
+                button,
+                shape
+            ]
+            of shapes
+        ) {
+
+            if (
+                !button
+            ) {
+
+                continue;
+
+            }
+
+
+            button.addEventListener(
+                "click",
                 event => {
 
-                    const file =
-                        event.target
-                            .files?.[0];
+                    event.preventDefault();
 
-                    if (!file) {
-                        return;
+
+                    this.currentShape =
+                        shape;
+
+
+                    const tracker =
+                        this.getSelectedTracker();
+
+
+                    /*
+                     * Locked tracker का shape change
+                     * नहीं करेंगे.
+                     */
+                    if (
+                        tracker &&
+                        !tracker.locked
+                    ) {
+
+                        tracker.setShape(
+                            shape
+                        );
+
                     }
 
-                    this.emit(
-                        "video-file",
-                        file
-                    );
+
+                    this.updateShapeButtons();
 
                 }
             );
@@ -295,342 +915,50 @@ window.TrackerUI = class TrackerUI {
         }
 
 
-        /* ---------------------------------
-           PLAY
-        --------------------------------- */
+        this.updateShapeButtons();
 
-        if (e.playButton) {
+    }
 
-            e.playButton.addEventListener(
-                "click",
-                () => {
 
-                    this.emit(
-                        "play"
-                    );
+    updateShapeButtons() {
 
-                }
-            );
+        const map =
+            {
 
-        }
+                square:
+                    this.elements.square,
 
+                circle:
+                    this.elements.circle,
 
-        /* ---------------------------------
-           PAUSE
-        --------------------------------- */
+                triangle:
+                    this.elements.triangle
 
-        if (e.pauseButton) {
+            };
 
-            e.pauseButton.addEventListener(
-                "click",
-                () => {
 
-                    this.emit(
-                        "pause"
-                    );
+        for (
+            const shape
+            of Object.keys(map)
+        ) {
 
-                }
-            );
+            const button =
+                map[shape];
 
-        }
 
+            if (
+                !button
+            ) {
 
-        /* ---------------------------------
-           STOP
-        --------------------------------- */
+                continue;
 
-        if (e.stopButton) {
+            }
 
-            e.stopButton.addEventListener(
-                "click",
-                () => {
 
-                    this.emit(
-                        "stop"
-                    );
-
-                }
-            );
-
-        }
-
-
-        /* ---------------------------------
-           EDIT
-        --------------------------------- */
-
-        if (e.editButton) {
-
-            e.editButton.addEventListener(
-                "click",
-                () => {
-
-                    this.emit(
-                        "toggle-edit"
-                    );
-
-                }
-            );
-
-        }
-
-
-        /* ---------------------------------
-           LOCK
-        --------------------------------- */
-
-        if (e.lockButton) {
-
-            e.lockButton.addEventListener(
-                "click",
-                () => {
-
-                    this.emit(
-                        "lock"
-                    );
-
-                }
-            );
-
-        }
-
-
-        /* ---------------------------------
-           UNLOCK
-        --------------------------------- */
-
-        if (e.unlockButton) {
-
-            e.unlockButton.addEventListener(
-                "click",
-                () => {
-
-                    this.emit(
-                        "unlock"
-                    );
-
-                }
-            );
-
-        }
-
-
-        /* ---------------------------------
-           RESET
-        --------------------------------- */
-
-        if (e.resetButton) {
-
-            e.resetButton.addEventListener(
-                "click",
-                () => {
-
-                    this.emit(
-                        "reset"
-                    );
-
-                }
-            );
-
-        }
-
-
-        /* ---------------------------------
-           DELETE
-        --------------------------------- */
-
-        if (e.deleteButton) {
-
-            e.deleteButton.addEventListener(
-                "click",
-                () => {
-
-                    this.emit(
-                        "delete"
-                    );
-
-                }
-            );
-
-        }
-
-
-        /* ---------------------------------
-           ADD TRACKER
-        --------------------------------- */
-
-        if (e.addTrackerButton) {
-
-            e.addTrackerButton.addEventListener(
-                "click",
-                () => {
-
-                    this.emit(
-                        "add-tracker"
-                    );
-
-                }
-            );
-
-        }
-
-
-        /* ---------------------------------
-           SQUARE
-        --------------------------------- */
-
-        if (e.squareButton) {
-
-            e.squareButton.addEventListener(
-                "click",
-                () => {
-
-                    this.emit(
-                        "style",
-                        "square"
-                    );
-
-                }
-            );
-
-        }
-
-
-        /* ---------------------------------
-           CIRCLE
-        --------------------------------- */
-
-        if (e.circleButton) {
-
-            e.circleButton.addEventListener(
-                "click",
-                () => {
-
-                    this.emit(
-                        "style",
-                        "circle"
-                    );
-
-                }
-            );
-
-        }
-
-
-        /* ---------------------------------
-           TRIANGLE
-        --------------------------------- */
-
-        if (e.triangleButton) {
-
-            e.triangleButton.addEventListener(
-                "click",
-                () => {
-
-                    this.emit(
-                        "style",
-                        "triangle"
-                    );
-
-                }
-            );
-
-        }
-
-
-        /* ---------------------------------
-           COLOR
-        --------------------------------- */
-
-        if (e.colorPicker) {
-
-            e.colorPicker.addEventListener(
-                "input",
-                event => {
-
-                    this.emit(
-                        "color",
-                        event.target.value
-                    );
-
-                }
-            );
-
-        }
-
-
-        /* ---------------------------------
-           SENSITIVITY
-        --------------------------------- */
-
-        if (e.sensitivity) {
-
-            e.sensitivity.addEventListener(
-                "input",
-                event => {
-
-                    const value =
-                        Number(
-                            event.target.value
-                        );
-
-                    this.updateSensitivityDisplay(
-                        value
-                    );
-
-                    this.emit(
-                        "sensitivity",
-                        value
-                    );
-
-                }
-            );
-
-        }
-
-
-        /* ---------------------------------
-           PROGRESS
-        --------------------------------- */
-
-        if (e.progress) {
-
-            e.progress.addEventListener(
-                "input",
-                event => {
-
-                    const value =
-                        Number(
-                            event.target.value
-                        );
-
-                    this.emit(
-                        "seek-percent",
-                        value
-                    );
-
-                }
-            );
-
-        }
-
-
-        /* ---------------------------------
-           STYLE SELECTOR
-        --------------------------------- */
-
-        if (e.styleSelector) {
-
-            e.styleSelector.addEventListener(
-                "change",
-                event => {
-
-                    this.emit(
-                        "style",
-                        event.target.value
-                    );
-
-                }
+            button.classList.toggle(
+                "active",
+                shape ===
+                this.currentShape
             );
 
         }
@@ -638,814 +966,853 @@ window.TrackerUI = class TrackerUI {
     }
 
 
-    /* =====================================
-       TRACKER EVENTS
-    ====================================== */
+    /* =====================================================
+       COLOR
+    ===================================================== */
 
-    bindTrackerEvents() {
+    bindColor() {
+
+        const input =
+            this.elements.color;
+
+
+        if (
+            !input
+        ) {
+
+            return;
+
+        }
+
+
+        this.currentColor =
+            input.value ||
+            this.currentColor;
+
+
+        input.addEventListener(
+            "input",
+            () => {
+
+                const color =
+                    input.value;
+
+
+                if (
+                    !isValidColor(
+                        color
+                    )
+                ) {
+
+                    return;
+
+                }
+
+
+                this.currentColor =
+                    color;
+
+
+                const tracker =
+                    this.getSelectedTracker();
+
+
+                if (
+                    tracker &&
+                    !tracker.locked
+                ) {
+
+                    tracker.setColor(
+                        color
+                    );
+
+                }
+
+            }
+        );
+
+    }
+
+
+    /* =====================================================
+       SIZE
+    ===================================================== */
+
+    bindSize() {
+
+        const input =
+            this.elements.size;
+
+
+        if (
+            !input
+        ) {
+
+            return;
+
+        }
+
+
+        input.addEventListener(
+            "input",
+            () => {
+
+                const tracker =
+                    this.getSelectedTracker();
+
+
+                if (
+                    !tracker ||
+                    tracker.locked
+                ) {
+
+                    return;
+
+                }
+
+
+                tracker.setSize(
+                    Number(
+                        input.value
+                    )
+                );
+
+
+                this.updateSizeValue(
+                    tracker.size
+                );
+
+            }
+        );
+
+    }
+
+
+    updateSizeValue(
+        value
+    ) {
+
+        const label =
+            this.find(
+                "#trackerSizeValue",
+                "#sizeValue"
+            );
+
+
+        if (
+            label
+        ) {
+
+            label.textContent =
+                Math.round(
+                    value
+                );
+
+        }
+
+    }
+
+
+    /* =====================================================
+       SENSITIVITY
+    ===================================================== */
+
+    bindSensitivity() {
+
+        const input =
+            this.elements.sensitivity;
+
+
+        if (
+            !input
+        ) {
+
+            return;
+
+        }
+
+
+        const update =
+            () => {
+
+                const value =
+                    Config.clampSensitivity(
+                        Number(
+                            input.value
+                        )
+                    );
+
+
+                if (
+                    this.trackingEngine
+                ) {
+
+                    this.trackingEngine
+                        .setSensitivity(
+                            value
+                        );
+
+                }
+
+
+                if (
+                    this.elements.sensitivityValue
+                ) {
+
+                    this.elements.sensitivityValue
+                        .textContent =
+                        value.toFixed(
+                            2
+                        );
+
+                }
+
+            };
+
+
+        input.addEventListener(
+            "input",
+            update
+        );
+
+
+        update();
+
+    }
+
+
+    /* =====================================================
+       TRACKER EVENTS
+    ===================================================== */
+
+    attachTracker(
+        tracker
+    ) {
+
+        if (
+            !tracker ||
+            !tracker.element
+        ) {
+
+            return;
+
+        }
+
+
+        if (
+            tracker.element.dataset.uiBound ===
+            "true"
+        ) {
+
+            return;
+
+        }
+
+
+        tracker.element.dataset.uiBound =
+            "true";
+
+
+        tracker.element.addEventListener(
+            "click",
+            event => {
+
+                event.stopPropagation();
+
+
+                if (
+                    this.trackerManager
+                ) {
+
+                    this.trackerManager.select(
+                        tracker.id
+                    );
+
+                }
+
+            }
+        );
+
+
+        tracker.events.on(
+            "change",
+            () => {
+
+                this.updateSelectedTrackerUI(
+                    tracker
+                );
+
+            }
+        );
+
+
+        tracker.events.on(
+            "tracking",
+            () => {
+
+                if (
+                    this.getSelectedTracker()?.id ===
+                    tracker.id
+                ) {
+
+                    this.updateSelectedTrackerUI(
+                        tracker
+                    );
+
+                }
+
+            }
+        );
+
+
+        tracker.events.on(
+            "targetLost",
+            () => {
+
+                if (
+                    this.getSelectedTracker()?.id ===
+                    tracker.id
+                ) {
+
+                    this.setStatus(
+                        `Target ${tracker.targetId} lost — waiting for same object`
+                    );
+
+                }
+
+            }
+        );
+
+
+        this.updateTrackerList();
+
+    }
+
+
+    /* =====================================================
+       TARGET SEARCH
+    ===================================================== */
+
+    findTargetNearTracker(
+        tracker,
+        detections
+    ) {
+
+        if (
+            !tracker ||
+            !Array.isArray(
+                detections
+            )
+        ) {
+
+            return null;
+
+        }
+
+
+        let best =
+            null;
+
+        let bestDistance =
+            Infinity;
+
+
+        for (
+            const detection
+            of detections
+        ) {
+
+            const center =
+                tracker.getTargetCenter(
+                    detection
+                );
+
+
+            if (!center) {
+                continue;
+            }
+
+
+            const dx =
+                center.x -
+                tracker.x;
+
+
+            const dy =
+                center.y -
+                tracker.y;
+
+
+            const distance =
+                Math.sqrt(
+                    dx * dx +
+                    dy * dy
+                );
+
+
+            if (
+                distance <
+                bestDistance
+            ) {
+
+                bestDistance =
+                    distance;
+
+                best =
+                    detection;
+
+            }
+
+        }
+
+
+        const radius =
+            (
+                APP_CONFIG
+                    ?.tracker
+                    ?.lockRadius ??
+                150
+            ) / 1000;
+
+
+        if (
+            bestDistance >
+            radius
+        ) {
+
+            return null;
+
+        }
+
+
+        return best;
+
+    }
+
+
+    /* =====================================================
+       GET SELECTED
+    ===================================================== */
+
+    getSelectedTracker() {
 
         if (
             !this.trackerManager
         ) {
-            return;
+
+            return null;
+
         }
 
 
-        this.trackerManager.on(
-            "created",
-            tracker => {
-
-                this.updateUI();
-
-                this.emit(
-                    "tracker-created",
-                    tracker
-                );
-
-            }
-        );
-
-
-        this.trackerManager.on(
-            "selected",
-            tracker => {
-
-                this.updateSelectedTracker(
-                    tracker
-                );
-
-                this.updateUI();
-
-            }
-        );
-
-
-        this.trackerManager.on(
-            "locked",
-            tracker => {
-
-                this.updateUI();
-
-                this.setTrackingStatus(
-                    "LOCKED"
-                );
-
-                this.emit(
-                    "tracker-locked",
-                    tracker
-                );
-
-            }
-        );
-
-
-        this.trackerManager.on(
-            "unlocked",
-            tracker => {
-
-                this.updateUI();
-
-                this.setTrackingStatus(
-                    "EDITING"
-                );
-
-                this.emit(
-                    "tracker-unlocked",
-                    tracker
-                );
-
-            }
-        );
-
-
-        this.trackerManager.on(
-            "deleted",
-            tracker => {
-
-                this.updateUI();
-
-                this.emit(
-                    "tracker-deleted",
-                    tracker
-                );
-
-            }
-        );
-
-
-        this.trackerManager.on(
-            "cleared",
-            () => {
-
-                this.updateUI();
-
-            }
-        );
-
-
-        this.trackerManager.on(
-            "changed",
-            () => {
-
-                this.updateUI();
-
-            }
-        );
-
-
-        this.trackerManager.on(
-            "editmode",
-            enabled => {
-
-                this.updateEditMode(
-                    enabled
-                );
-
-            }
-        );
-
-
-        this.trackerManager.on(
-            "tracking",
-            () => {
-
-                this.setTrackingStatus(
-                    "TRACKING"
-                );
-
-            }
-        );
+        return this.trackerManager.selected();
 
     }
 
 
-    /* =====================================
-       VIDEO EVENTS
-    ====================================== */
+    /* =====================================================
+       SELECTED UI
+    ===================================================== */
 
-    bindVideoEvents() {
+    updateSelectedTrackerUI(
+        tracker
+    ) {
 
         if (
-            !this.videoController
+            !tracker
         ) {
+
             return;
+
         }
 
 
-        this.videoController.on(
-            "fileloaded",
-            data => {
+        /*
+         * Shape.
+         */
+        this.currentShape =
+            tracker.shape;
 
-                this.setTrackingStatus(
-                    "VIDEO LOADED"
-                );
 
-                this.updateUI();
+        this.updateShapeButtons();
 
-                this.emit(
-                    "video-loaded",
-                    data
-                );
 
-            }
+        /*
+         * Color.
+         */
+        if (
+            this.elements.color
+        ) {
+
+            this.elements.color.value =
+                tracker.color;
+
+        }
+
+
+        /*
+         * Size.
+         */
+        if (
+            this.elements.size
+        ) {
+
+            this.elements.size.value =
+                tracker.size;
+
+        }
+
+
+        this.updateSizeValue(
+            tracker.size
         );
 
 
-        this.videoController.on(
-            "loadedmetadata",
-            info => {
+        /*
+         * Lock/unlock buttons.
+         */
+        if (
+            this.elements.lock
+        ) {
 
-                this.updateTime(
-                    info?.currentTime ||
-                    0,
+            this.elements.lock.disabled =
+                tracker.locked;
 
-                    info?.duration ||
-                    0
-                );
-
-                this.emit(
-                    "video-metadata",
-                    info
-                );
-
-            }
-        );
+        }
 
 
-        this.videoController.on(
-            "play",
-            () => {
+        if (
+            this.elements.unlock
+        ) {
 
-                this.setTrackingStatus(
-                    "PLAYING"
-                );
+            this.elements.unlock.disabled =
+                !tracker.locked;
 
-                this.emit(
-                    "video-play"
-                );
-
-            }
-        );
+        }
 
 
-        this.videoController.on(
-            "pause",
-            () => {
+        if (
+            this.elements.delete
+        ) {
 
-                this.setTrackingStatus(
-                    "PAUSED"
-                );
+            this.elements.delete.disabled =
+                false;
 
-                this.emit(
-                    "video-pause"
-                );
-
-            }
-        );
-
-
-        this.videoController.on(
-            "stop",
-            () => {
-
-                this.setTrackingStatus(
-                    "STOPPED"
-                );
-
-                this.updateTime(
-                    0,
-
-                    this.videoController
-                        ?.duration ||
-                    0
-                );
-
-            }
-        );
-
-
-        this.videoController.on(
-            "ended",
-            () => {
-
-                this.setTrackingStatus(
-                    "ENDED"
-                );
-
-            }
-        );
-
-
-        this.videoController.on(
-            "timeupdate",
-            time => {
-
-                const duration =
-                    this.videoController
-                        ?.video
-                        ?.duration ||
-                    0;
-
-                this.updateTime(
-                    time,
-                    duration
-                );
-
-            }
-        );
-
-
-        this.videoController.on(
-            "error",
-            error => {
-
-                this.setTrackingStatus(
-                    "VIDEO ERROR"
-                );
-
-                console.error(
-                    error
-                );
-
-            }
-        );
+        }
 
     }
 
 
-    /* =====================================
-       UPDATE UI
-    ====================================== */
+    /* =====================================================
+       TRACKER LIST
+    ===================================================== */
 
-    updateUI() {
+    updateTrackerList() {
 
-        const manager =
-            this.trackerManager;
+        const list =
+            this.elements.trackerList;
 
-        if (!manager) {
+
+        if (
+            !list ||
+            !this.trackerManager
+        ) {
+
             return;
+
+        }
+
+
+        list.innerHTML =
+            "";
+
+
+        for (
+            const tracker
+            of this.trackerManager.all()
+        ) {
+
+            const item =
+                document.createElement(
+                    "button"
+                );
+
+
+            item.type =
+                "button";
+
+
+            item.className =
+                "tracker-list-item";
+
+
+            item.dataset.trackerId =
+                tracker.id;
+
+
+            item.innerHTML =
+                `
+                    <span
+                        class="tracker-list-color"
+                        style="background:${escapeHTMLAttribute(tracker.color)}"
+                    ></span>
+
+                    <span>
+                        ${escapeHTML(tracker.shape)}
+                    </span>
+
+                    <span>
+                        ${tracker.locked
+                            ? `LOCKED #${escapeHTML(tracker.targetId)}`
+                            : "EDIT"}
+                    </span>
+                `;
+
+
+            item.classList.toggle(
+                "selected",
+                tracker.id ===
+                this.trackerManager.selectedId
+            );
+
+
+            item.addEventListener(
+                "click",
+                () => {
+
+                    this.trackerManager.select(
+                        tracker.id
+                    );
+
+                }
+            );
+
+
+            list.appendChild(
+                item
+            );
+
+        }
+
+    }
+
+
+    /* =====================================================
+       STATUS
+    ===================================================== */
+
+    setStatus(
+        text
+    ) {
+
+        if (
+            this.elements.status
+        ) {
+
+            this.elements.status.textContent =
+                text;
+
+        }
+
+    }
+
+
+    updateTrackingStatus(
+        data
+    ) {
+
+        if (
+            !this.trackerManager
+        ) {
+
+            return;
+
         }
 
 
         const trackers =
-            manager.trackers ||
-            [];
+            this.trackerManager.all();
 
 
-        const selected =
-            manager.getSelected
-                ? manager.getSelected()
-                : null;
-
-
-        if (
-            this.elements.trackerCount
-        ) {
-
-            this.elements.trackerCount
-                .textContent =
-                String(
-                    trackers.length
-                );
-
-        }
-
-
-        if (
-            this.elements.selectedTracker
-        ) {
-
-            this.elements.selectedTracker
-                .textContent =
-                selected
-                    ? `Tracker ${selected.id}`
-                    : "None";
-
-        }
-
-
-        if (
-            this.elements.lockButton
-        ) {
-
-            this.elements.lockButton.disabled =
-                !selected ||
-                selected.locked;
-
-        }
-
-
-        if (
-            this.elements.unlockButton
-        ) {
-
-            this.elements.unlockButton.disabled =
-                !selected ||
-                !selected.locked;
-
-        }
-
-
-        if (
-            this.elements.deleteButton
-        ) {
-
-            this.elements.deleteButton.disabled =
-                !selected;
-
-        }
-
-
-        if (
-            this.elements.colorPicker &&
-            selected?.color
-        ) {
-
-            this.elements.colorPicker
-                .value =
-                selected.color;
-
-        }
-
-
-        if (
-            this.elements.styleSelector &&
-            selected?.style
-        ) {
-
-            this.elements.styleSelector
-                .value =
-                selected.style;
-
-        }
-
-
-        this.updateStyleButtons(
-            selected
-        );
-
-    }
-
-
-    /* =====================================
-       STYLE BUTTONS
-    ====================================== */
-
-    updateStyleButtons(
-        selected
-    ) {
-
-        const e =
-            this.elements;
-
-
-        const buttons = {
-
-            square:
-                e.squareButton,
-
-            circle:
-                e.circleButton,
-
-            triangle:
-                e.triangleButton
-
-        };
-
-
-        Object.entries(
-            buttons
-        ).forEach(
-            ([style, button]) => {
-
-                if (!button) {
-                    return;
-                }
-
-                button.classList.toggle(
-                    "active",
-
-                    Boolean(
-                        selected &&
-                        selected.style ===
-                        style
-                    )
-                );
-
-            }
-        );
-
-    }
-
-
-    /* =====================================
-       EDIT MODE
-    ====================================== */
-
-    updateEditMode(
-        enabled
-    ) {
-
-        const e =
-            this.elements;
-
-
-        if (e.editButton) {
-
-            e.editButton.classList.toggle(
-                "active",
-                Boolean(enabled)
+        const locked =
+            trackers.filter(
+                tracker =>
+                    tracker.locked
             );
 
-            e.editButton.textContent =
-                enabled
-                    ? "Edit: ON"
-                    : "Edit";
-
-        }
-
-
-        if (e.editStatus) {
-
-            e.editStatus.textContent =
-                enabled
-                    ? "EDIT MODE"
-                    : "TRACKING MODE";
-
-        }
-
-
-        this.updateUI();
-
-    }
-
-
-    /* =====================================
-       TRACKING STATUS
-    ====================================== */
-
-    setTrackingStatus(
-        status
-    ) {
 
         if (
-            !this.elements.trackingStatus
+            locked.length === 0
         ) {
+
+            this.setStatus(
+                "Ready"
+            );
+
             return;
+
         }
 
 
-        this.elements.trackingStatus
-            .textContent =
-            String(
-                status
+        const active =
+            locked.filter(
+                tracker =>
+                    tracker.tracking
             );
 
 
-        this.elements.trackingStatus
-            .dataset.status =
-            String(
-                status
-            ).toLowerCase();
+        this.setStatus(
+            `Tracking ${active.length}/${locked.length} • Objects: ${data.detections.length}`
+        );
 
     }
 
 
-    /* =====================================
-       TIME DISPLAY
-    ====================================== */
+    /* =====================================================
+       UPDATE UI
+    ===================================================== */
 
-    updateTime(
-        currentTime,
-        duration
-    ) {
+    updateUI() {
 
-        currentTime =
-            Number(currentTime) ||
-            0;
-
-        duration =
-            Number(duration) ||
-            0;
+        document.body.classList.toggle(
+            "edit-mode",
+            this.editMode
+        );
 
 
-        if (
-            this.elements.currentTime
-        ) {
+        this.updateShapeButtons();
 
-            this.elements.currentTime
-                .textContent =
-                this.formatTime(
-                    currentTime
-                );
+        this.updateTrackerList();
 
-        }
+
+        const tracker =
+            this.getSelectedTracker();
 
 
         if (
-            this.elements.duration
+            tracker
         ) {
 
-            this.elements.duration
-                .textContent =
-                this.formatTime(
-                    duration
-                );
-
-        }
-
-
-        if (
-            this.elements.progress
-        ) {
-
-            const percent =
-                duration > 0
-                    ? (
-                        currentTime /
-                        duration
-                    ) *
-                    100
-                    : 0;
-
-
-            /*
-             * Do not overwrite the slider
-             * while the user is actively
-             * dragging it.
-             */
-
-            if (
-                document.activeElement !==
-                this.elements.progress
-            ) {
-
-                this.elements.progress
-                    .value =
-                    String(
-                        percent
-                    );
-
-            }
+            this.updateSelectedTrackerUI(
+                tracker
+            );
 
         }
 
     }
 
+}
 
-    /* =====================================
-       SENSITIVITY DISPLAY
-    ====================================== */
 
-    updateSensitivityDisplay(
+/* =========================================================
+   HTML ESCAPING
+========================================================= */
+
+function escapeHTML(
+    value
+) {
+
+    return String(
+        value ??
+        ""
+    )
+        .replace(
+            /&/g,
+            "&amp;"
+        )
+        .replace(
+            /</g,
+            "&lt;"
+        )
+        .replace(
+            />/g,
+            "&gt;"
+        )
+        .replace(
+            /"/g,
+            "&quot;"
+        )
+        .replace(
+            /'/g,
+            "&#039;"
+        );
+
+}
+
+
+function escapeHTMLAttribute(
+    value
+) {
+
+    return escapeHTML(
         value
+    );
+
+}
+
+
+/* =========================================================
+   GLOBAL INSTANCE
+========================================================= */
+
+let uiController =
+    null;
+
+
+function initializeUI() {
+
+    if (
+        uiController
     ) {
 
-        value =
-            Number(value) || 0;
-
-
-        if (
-            this.elements.sensitivityValue
-        ) {
-
-            this.elements.sensitivityValue
-                .textContent =
-                `${Math.round(
-                    value * 100
-                )}%`;
-
-        }
+        return uiController;
 
     }
 
 
-    /* =====================================
-       FORMAT TIME
-    ====================================== */
+    uiController =
+        new UIController();
 
-    formatTime(
-        seconds
+
+    uiController.init();
+
+
+    window.uiController =
+        uiController;
+
+
+    return uiController;
+
+}
+
+
+/* =========================================================
+   AUTO INIT
+========================================================= */
+
+if (
+    typeof document !==
+    "undefined"
+) {
+
+    if (
+        document.readyState ===
+        "loading"
     ) {
 
-        if (
-            window.TrackerUtils
-        ) {
-
-            return window.TrackerUtils
-                .formatTime(
-                    seconds
-                );
-
-        }
-
-
-        seconds =
-            Math.max(
-                0,
-                Number(seconds) ||
-                0
-            );
-
-
-        const minutes =
-            Math.floor(
-                seconds / 60
-            );
-
-
-        const secs =
-            Math.floor(
-                seconds % 60
-            );
-
-
-        return (
-            String(minutes)
-                .padStart(
-                    2,
-                    "0"
-                ) +
-            ":" +
-            String(secs)
-                .padStart(
-                    2,
-                    "0"
-                )
-        );
-
-    }
-
-
-    /* =====================================
-       SHOW MESSAGE
-    ====================================== */
-
-    showMessage(
-        message,
-        type = "info"
-    ) {
-
-        let container =
-            document.getElementById(
-                "uiMessage"
-            );
-
-
-        if (!container) {
-
-            container =
-                document.createElement(
-                    "div"
-                );
-
-            container.id =
-                "uiMessage";
-
-            container.className =
-                "ui-message";
-
-            document.body.appendChild(
-                container
-            );
-
-        }
-
-
-        container.textContent =
-            message;
-
-        container.dataset.type =
-            type;
-
-        container.classList.add(
-            "visible"
-        );
-
-
-        clearTimeout(
-            this.messageTimer
-        );
-
-
-        this.messageTimer =
-            setTimeout(
-                () => {
-
-                    container.classList.remove(
-                        "visible"
-                    );
-
-                },
-
-                2500
-            );
-
-    }
-
-
-    /* =====================================
-       ENABLE / DISABLE CONTROLS
-    ====================================== */
-
-    setControlsEnabled(
-        enabled
-    ) {
-
-        const controls =
-            document.querySelectorAll(
-                "button, input, select"
-            );
-
-
-        controls.forEach(
-            element => {
-
-                if (
-                    element.id ===
-                    "videoInput"
-                ) {
-                    return;
-                }
-
-                element.disabled =
-                    !enabled;
-
+        document.addEventListener(
+            "DOMContentLoaded",
+            initializeUI,
+            {
+                once: true
             }
         );
 
     }
+    else {
 
-
-    /* =====================================
-       DESTROY
-    ====================================== */
-
-    destroy() {
-
-        this.listeners =
-            {};
+        initializeUI();
 
     }
 
-};
+}

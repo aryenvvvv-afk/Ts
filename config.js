@@ -1,21 +1,24 @@
-/* =========================================
-   VIDEO OBJECT TRACKER
-   config.js
-   FILE 3 / 10
-========================================= */
-
 "use strict";
 
+/*
+ * =========================================================
+ * Object Tracker
+ * config.js
+ *
+ * Central configuration file.
+ * बाकी सभी JS files इसी configuration को use करेंगे.
+ * =========================================================
+ */
 
-window.TrackerConfig = {
+const APP_CONFIG = {
 
-    /* =====================================
-       APPLICATION
-    ====================================== */
+    /* =====================================================
+       APP
+    ===================================================== */
 
     app: {
 
-        name: "Video Object Tracker",
+        name: "Object Tracker",
 
         version: "2.0.0",
 
@@ -24,42 +27,83 @@ window.TrackerConfig = {
     },
 
 
-    /* =====================================
-       TRACKER
-    ====================================== */
+    /* =====================================================
+       VIDEO
+    ===================================================== */
 
-    tracker: {
+    video: {
 
-        defaultStyle: "square",
+        /*
+         * Video को browser के available size के अंदर
+         * रखा जाएगा.
+         */
+        objectFit: "contain",
 
-        defaultColor: "#00ff66",
+        /*
+         * Tracking processing interval.
+         * Lower value = अधिक frequent processing.
+         */
+        processingInterval: 33,
 
-        defaultSize: 120,
+        /*
+         * Default FPS fallback.
+         */
+        defaultFPS: 30,
 
-        minSize: 20,
+        /*
+         * Maximum video dimensions used internally.
+         * Original uploaded video को बदला नहीं जाता.
+         */
+        maxProcessingWidth: 1280,
 
-        maxSize: 500,
-
-        resizeStep: 1,
-
-        borderWidth: 3,
-
-        maxTrackers: Infinity
+        maxProcessingHeight: 720
 
     },
 
 
-    /* =====================================
-       TRACKING
-    ====================================== */
+    /* =====================================================
+       TRACKERS
+    ===================================================== */
 
-    tracking: {
+    tracker: {
 
         /*
-         * 0 = slower / smoother
-         * 1 = faster / snappier
+         * Unlimited trackers.
          */
+        maxTrackers: Infinity,
 
+        /*
+         * Default tracker.
+         */
+        defaultShape: "square",
+
+        defaultColor: "#ff0000",
+
+        defaultSize: 90,
+
+        minSize: 25,
+
+        maxSize: 500,
+
+        borderWidth: 3,
+
+
+        /*
+         * Available shapes.
+         */
+        shapes: [
+            "square",
+            "circle",
+            "triangle"
+        ],
+
+
+        /*
+         * Position smoothing.
+         *
+         * 0 = very slow
+         * 1 = very fast
+         */
         defaultSensitivity: 0.65,
 
         minSensitivity: 0,
@@ -68,275 +112,338 @@ window.TrackerConfig = {
 
 
         /*
-         * Initial radius used when locking
-         * a tracker to an object.
+         * Tracker target lost होने पर दूसरे object
+         * को पकड़ने की अनुमति नहीं है.
          */
-
-        searchRadius: 120,
+        allowTargetSwitch: false,
 
 
         /*
-         * How many frames an object can remain
-         * in memory when temporarily lost.
+         * Target को temporarily खोने पर tracker
+         * कितने frames तक last known position पर रहेगा.
          */
-
-        memoryFrames: 20,
+        maxLostFrames: 12,
 
 
         /*
-         * Minimum detected object size.
-         */
-
-        minTargetSize: 8,
-
-
-        /*
-         * Maximum number of detected targets
-         * processed per frame.
-         */
-
-        maxTargets: 100,
-
-
-        /*
-         * Prevent a locked tracker from jumping
-         * to a completely different object.
-         */
-
-        identityThreshold: 0.35,
-
-
-        /*
-         * Position matching weight.
-         */
-
-        positionWeight: 0.70,
-
-
-        /*
-         * Size matching weight.
-         */
-
-        sizeWeight: 0.20,
-
-
-        /*
-         * Motion matching weight.
-         */
-
-        motionWeight: 0.10,
-
-
-        /*
-         * Number of frames used for smoothing.
-         */
-
-        smoothingFrames: 4
-
-    },
-
-
-    /* =====================================
-       VIDEO
-    ====================================== */
-
-    video: {
-
-        /*
-         * Video must remain inside the stage.
-         */
-
-        objectFit: "contain",
-
-        autoplay: false,
-
-        muted: true,
-
-        playsInline: true,
-
-
-        /*
-         * Maximum processing width.
+         * Target matching.
          *
-         * Lower value = faster tracking.
+         * Locked tracker केवल अपने assigned target
+         * की identity / position को follow करेगा.
          */
+        useTargetIdentity: true,
 
-        processingWidth: 640,
+        usePositionContinuity: true,
+
+        useSizeContinuity: true,
+
+        useAppearanceContinuity: true,
 
 
         /*
-         * Maximum processing height.
+         * दूसरे similar object पर jump रोकने के लिए
+         * maximum allowed movement between frames.
          */
-
-        processingHeight: 640,
+        maxJumpDistance: 220,
 
 
         /*
-         * Video frame processing rate.
+         * Search radius बढ़ाने/घटाने के लिए sensitivity.
          */
+        minLockRadius: 35,
 
-        targetFPS: 30
+        maxLockRadius: 180
 
     },
 
 
-    /* =====================================
-       OVERLAY
-    ====================================== */
+    /* =====================================================
+       TRACKING ENGINE
+    ===================================================== */
 
-    overlay: {
+    tracking: {
 
         enabled: true,
 
-        pointerEvents: true,
+        autoStartAfterLock: true,
 
-        responsive: true,
-
-        maintainAspectRatio: true,
-
-        coordinateMode: "video"
-
-    },
+        processWhilePlayingOnly: true,
 
 
-    /* =====================================
-       UI
-    ====================================== */
+        /*
+         * Object detector settings.
+         */
+        detector: {
 
-    ui: {
+            mode: "video",
 
-        editModeOnStart: true,
+            maxObjects: 50,
 
-        showStatus: true,
+            minConfidence: 0.25,
 
-        showTrackerCount: true,
-
-        showSelectedTracker: true,
-
-        showLockStatus: true,
-
-        showTime: true
-
-    },
-
-
-    /* =====================================
-       TRACKER STYLES
-    ====================================== */
-
-    styles: {
-
-        square: {
-
-            name: "Square",
-
-            type: "square"
+            minTrackingConfidence: 0.20
 
         },
 
 
-        circle: {
+        /*
+         * Target association.
+         */
+        association: {
 
-            name: "Circle",
+            /*
+             * Target ID को सबसे ज्यादा importance.
+             */
+            idWeight: 0.50,
 
-            type: "circle"
+            /*
+             * Previous position से distance.
+             */
+            positionWeight: 0.25,
 
-        },
+            /*
+             * Object size similarity.
+             */
+            sizeWeight: 0.10,
+
+            /*
+             * Visual similarity.
+             */
+            appearanceWeight: 0.15,
 
 
-        triangle: {
+            /*
+             * Minimum score required to accept
+             * a detection as the locked target.
+             */
+            minimumScore: 0.58,
 
-            name: "Triangle",
 
-            type: "triangle"
+            /*
+             * अगर score इससे कम है तो tracker
+             * target को lost मानेगा.
+             */
+            lostScore: 0.45
 
         }
 
     },
 
 
-    /* =====================================
-       COLORS
-    ====================================== */
+    /* =====================================================
+       COORDINATES
+    ===================================================== */
 
-    colors: [
+    coordinates: {
 
-        "#00ff66",
+        /*
+         * All tracker positions are stored in
+         * VIDEO-NATIVE coordinates.
+         *
+         * इससे mobile / desktop / resize के बाद
+         * tracker की actual position नहीं बदलती.
+         */
+        coordinateSpace: "video",
 
-        "#ff3333",
+        useNormalizedCoordinates: true,
 
-        "#3399ff",
+        clampToVideo: true,
 
-        "#ffff00",
+        accountForObjectFit: true,
 
-        "#ff00ff",
-
-        "#00ffff",
-
-        "#ffffff",
-
-        "#ff8800"
-
-    ],
-
-
-    /* =====================================
-       KEYBOARD
-    ====================================== */
-
-    keyboard: {
-
-        deleteTracker: [
-            "Delete",
-            "Backspace"
-        ],
-
-        escape: "Escape",
-
-        playPause: " ",
-
-        editMode: "e"
+        accountForLetterbox: true
 
     },
 
 
-    /* =====================================
-       PERFORMANCE
-    ====================================== */
+    /* =====================================================
+       EDIT MODE
+    ===================================================== */
 
-    performance: {
+    editor: {
 
-        useRequestVideoFrameCallback:
-            true,
+        enabledByDefault: false,
 
-        useWorker:
-            true,
+        dragEnabled: true,
 
-        maximumProcessingTime:
-            30,
+        resizeEnabled: true,
 
-        skipFramesWhenBusy:
-            true
+        deleteEnabled: true,
+
+        colorEnabled: true,
+
+        shapeEnabled: true,
+
+        lockEnabled: true,
+
+        unlockEnabled: true,
+
+        multiTrackerEnabled: true,
+
+
+        /*
+         * नया tracker video के center में
+         * बनाया जाएगा.
+         */
+        createAtCenter: true,
+
+
+        /*
+         * Tracker को object पर drop करने के बाद
+         * automatic lock नहीं होगा.
+         *
+         * User को manually Lock दबाना होगा.
+         */
+        autoLockOnDrop: false
 
     },
 
 
-    /* =====================================
-       GET CONFIG VALUE
-    ====================================== */
+    /* =====================================================
+       UI
+    ===================================================== */
 
-    get(
-        path,
-        fallback = undefined
-    ) {
+    ui: {
+
+        elements: {
+
+            video: "video",
+
+            videoInput: "videoInput",
+
+            videoStage: "videoStage",
+
+            trackerLayer: "trackerLayer",
+
+            emptyState: "emptyState",
+
+            videoLoading: "videoLoading",
+
+            videoError: "videoError",
+
+            trackingStatus: "trackingStatus",
+
+            editModeButton: "editModeButton",
+
+            addTrackerButton: "addTrackerButton",
+
+            playButton: "playButton",
+
+            pauseButton: "pauseButton",
+
+            stopButton: "stopButton",
+
+            lockButton: "lockButton",
+
+            unlockButton: "unlockButton",
+
+            deleteButton: "deleteButton",
+
+            resetButton: "resetButton",
+
+            trackerShape: "trackerShape",
+
+            trackerColor: "trackerColor",
+
+            sensitivity: "sensitivity",
+
+            sensitivityValue: "sensitivityValue",
+
+            trackerCount: "trackerCount",
+
+            selectedTracker: "selectedTracker",
+
+            lockedTracker: "lockedTracker",
+
+            confidenceValue: "confidenceValue",
+
+            editorHelp: "editorHelp"
+
+        }
+
+    },
+
+
+    /* =====================================================
+       WORKER
+    ===================================================== */
+
+    worker: {
+
+        enabled: true,
+
+        file: "tracking-worker.js",
+
+        terminateOnReset: true
+
+    },
+
+
+    /* =====================================================
+       DEBUG
+    ===================================================== */
+
+    debug: {
+
+        showTrackingBoxes: false,
+
+        showTargetId: false,
+
+        showConfidence: false,
+
+        logTracking: false,
+
+        logCoordinates: false,
+
+        logVideoEvents: false
+
+    }
+
+};
+
+
+/* =========================================================
+   DEFAULT CONFIG EXPORT
+========================================================= */
+
+if (
+    typeof window !== "undefined"
+) {
+
+    window.APP_CONFIG = APP_CONFIG;
+
+}
+
+
+/* =========================================================
+   COMMON CONFIG ALIAS
+========================================================= */
+
+if (
+    typeof globalThis !== "undefined"
+) {
+
+    globalThis.APP_CONFIG = APP_CONFIG;
+
+}
+
+
+/* =========================================================
+   SAFE CONFIG HELPERS
+========================================================= */
+
+const Config = {
+
+    get(path, fallback = undefined) {
 
         const parts =
             String(path)
-                .split(".");
+                .split(".")
+                .filter(Boolean);
 
 
-        let current =
-            this;
+        let value =
+            APP_CONFIG;
 
 
         for (
@@ -344,8 +451,12 @@ window.TrackerConfig = {
         ) {
 
             if (
-                current === null ||
-                current === undefined
+                value === null ||
+                value === undefined ||
+                !Object.prototype.hasOwnProperty.call(
+                    value,
+                    part
+                )
             ) {
 
                 return fallback;
@@ -353,62 +464,37 @@ window.TrackerConfig = {
             }
 
 
-            if (
-                !Object.prototype
-                    .hasOwnProperty
-                    .call(
-                        current,
-                        part
-                    )
-            ) {
-
-                return fallback;
-
-            }
-
-
-            current =
-                current[part];
+            value =
+                value[part];
 
         }
 
 
-        return current;
+        return value;
 
     },
 
 
-    /* =====================================
-       SET CONFIG VALUE
-    ====================================== */
-
-    set(
-        path,
-        value
-    ) {
+    set(path, value) {
 
         const parts =
             String(path)
-                .split(".");
+                .split(".")
+                .filter(Boolean);
 
 
-        if (
-            parts.length === 0
-        ) {
-
+        if (!parts.length) {
             return false;
-
         }
 
 
-        let current =
-            this;
+        let target =
+            APP_CONFIG;
 
 
         for (
             let i = 0;
-            i <
-            parts.length - 1;
+            i < parts.length - 1;
             i++
         ) {
 
@@ -417,29 +503,24 @@ window.TrackerConfig = {
 
 
             if (
-                typeof current[part] !==
-                "object" ||
-                current[part] === null
+                !target[part] ||
+                typeof target[part] !== "object"
             ) {
 
-                current[part] =
-                    {};
+                target[part] = {};
 
             }
 
 
-            current =
-                current[part];
+            target =
+                target[part];
 
         }
 
 
-        current[
-            parts[
-                parts.length - 1
-            ]
-        ] =
-            value;
+        target[
+            parts[parts.length - 1]
+        ] = value;
 
 
         return true;
@@ -447,19 +528,106 @@ window.TrackerConfig = {
     },
 
 
-    /* =====================================
-       RESET
-    ====================================== */
+    trackerShapes() {
 
-    reset() {
+        return [
+            ...APP_CONFIG.tracker.shapes
+        ];
 
-        /*
-         * Configuration is intentionally
-         * kept static during normal use.
-         */
+    },
 
-        return true;
+
+    clampSensitivity(value) {
+
+        const number =
+            Number(value);
+
+
+        if (
+            !Number.isFinite(number)
+        ) {
+
+            return APP_CONFIG
+                .tracker
+                .defaultSensitivity;
+
+        }
+
+
+        return Math.max(
+            APP_CONFIG.tracker.minSensitivity,
+
+            Math.min(
+                APP_CONFIG.tracker.maxSensitivity,
+                number
+            )
+        );
+
+    },
+
+
+    clampTrackerSize(value) {
+
+        const number =
+            Number(value);
+
+
+        if (
+            !Number.isFinite(number)
+        ) {
+
+            return APP_CONFIG
+                .tracker
+                .defaultSize;
+
+        }
+
+
+        return Math.max(
+            APP_CONFIG.tracker.minSize,
+
+            Math.min(
+                APP_CONFIG.tracker.maxSize,
+                number
+            )
+        );
+
+    },
+
+
+    isValidShape(shape) {
+
+        return APP_CONFIG
+            .tracker
+            .shapes
+            .includes(
+                shape
+            );
 
     }
 
 };
+
+
+/* =========================================================
+   GLOBAL CONFIG HELPER
+========================================================= */
+
+if (
+    typeof window !== "undefined"
+) {
+
+    window.Config =
+        Config;
+
+}
+
+
+if (
+    typeof globalThis !== "undefined"
+) {
+
+    globalThis.Config =
+        Config;
+
+}

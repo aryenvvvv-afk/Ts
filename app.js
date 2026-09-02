@@ -1,1379 +1,1116 @@
-/* =========================================
-   VIDEO OBJECT TRACKER
-   app.js
-   FILE 8 / 10
-========================================= */
-
 "use strict";
 
-document.addEventListener("DOMContentLoaded", () => {
+/*
+ * =========================================================
+ * app.js
+ * Main application controller
+ * =========================================================
+ */
 
-    /* =====================================
-       ELEMENTS
-    ====================================== */
+class ObjectTrackerApp {
 
-    const video =
-        document.getElementById("video");
+    constructor() {
+        this.videoController = null;
+        this.trackerManager = null;
+        this.trackingEngine = null;
 
-    const stage =
-        document.getElementById("stage");
+        this.editMode = true;
+        this.selectedShape = "square";
+        this.selectedColor = "#00ff66";
 
-    const trackerLayer =
-        document.getElementById(
-            "trackerLayer"
-        );
+        this.initialized = false;
+    }
 
 
-    if (!video || !stage || !trackerLayer) {
+    /* =====================================================
+       INIT
+    ===================================================== */
 
-        console.error(
-            "Required elements are missing:",
-            {
-                video,
-                stage,
-                trackerLayer
+    init() {
+
+        if (this.initialized) {
+            return;
+        }
+
+        this.videoController =
+            window.videoController ||
+            (
+                typeof initializeVideoController === "function"
+                    ? initializeVideoController()
+                    : null
+            );
+
+        this.trackerManager =
+            window.trackerManager ||
+            (
+                typeof initializeTrackerManager === "function"
+                    ? initializeTrackerManager()
+                    : null
+            );
+
+        this.trackingEngine =
+            window.trackingEngine ||
+            (
+                typeof initializeTrackingEngine === "function"
+                    ? initializeTrackingEngine()
+                    : null
+            );
+
+        if (this.trackingEngine) {
+            this.trackingEngine.setVideoController(
+                this.videoController
+            );
+
+            this.trackingEngine.setTrackerManager(
+                this.trackerManager
+            );
+        }
+
+        this.bindControls();
+        this.bindVideoEvents();
+        this.bindTrackerEvents();
+
+        this.initialized = true;
+
+        this.updateStatus("Ready");
+    }
+
+
+    /* =====================================================
+       CONTROLS
+    ===================================================== */
+
+    bindControls() {
+
+        this.onClick(
+            ["#playBtn", "#play"],
+            () => {
+
+                if (!this.videoController) {
+                    return;
+                }
+
+                this.videoController.play();
+
+                if (this.trackingEngine) {
+                    this.trackingEngine.start();
+                }
             }
         );
 
-        return;
-    }
 
+        this.onClick(
+            ["#pauseBtn", "#pause"],
+            () => {
 
-    /* =====================================
-       CONFIG
-    ====================================== */
+                if (this.videoController) {
+                    this.videoController.pause();
+                }
 
-    const config =
-        window.TrackerConfig ||
-        {};
-
-
-    /* =====================================
-       VIDEO CONTROLLER
-    ====================================== */
-
-    const videoController =
-        new window.VideoController({
-
-            video,
-
-            stage
-
-        });
-
-
-    /* =====================================
-       TRACKER MANAGER
-    ====================================== */
-
-    const trackerManager =
-        new window.TrackerManager({
-
-            stage,
-
-            layer:
-                trackerLayer,
-
-            video
-
-        });
-
-
-    /* =====================================
-       UI
-    ====================================== */
-
-    const ui =
-        new window.TrackerUI({
-
-            videoController,
-
-            trackerManager
-
-        });
-
-
-    /* =====================================
-       TRACKING ENGINE
-    ====================================== */
-
-    let trackingEngine = null;
-
-
-    if (
-        typeof window.TrackingEngine ===
-        "function"
-    ) {
-
-        trackingEngine =
-            new window.TrackingEngine({
-
-                video,
-
-                stage,
-
-                trackerManager,
-
-                sensitivity:
-                    getSensitivity()
-
-            });
-
-    }
-
-
-    /* =====================================
-       APPLICATION STATE
-    ====================================== */
-
-    const state = {
-
-        initialized:
-            true,
-
-        editMode:
-            true,
-
-        tracking:
-            false,
-
-        sensitivity:
-            getSensitivity(),
-
-        selectedStyle:
-            "square",
-
-        videoLoaded:
-            false
-
-    };
-
-
-    /* =====================================
-       INITIAL SETUP
-    ====================================== */
-
-    trackerManager.setEditMode(
-        true
-    );
-
-
-    /*
-     * Create one tracker automatically
-     * when the app starts.
-     *
-     * This prevents the "Edit button
-     * does nothing" problem.
-     */
-
-    if (
-        trackerManager.trackers.length ===
-        0
-    ) {
-
-        trackerManager.addAtCenter({
-
-            style:
-                "square",
-
-            color:
-                config.tracker?.defaultColor ||
-                "#00ff66"
-
-        });
-
-    }
-
-
-    updateGlobalStatus(
-        "READY"
-    );
-
-
-    /* =====================================
-       GET SENSITIVITY
-    ====================================== */
-
-    function getSensitivity() {
-
-        const input =
-            document.getElementById(
-                "sensitivity"
-            );
-
-
-        if (!input) {
-
-            return (
-                config.tracking
-                    ?.defaultSensitivity ||
-                0.65
-            );
-
-        }
-
-
-        const value =
-            Number(
-                input.value
-            );
-
-
-        if (
-            !Number.isFinite(value)
-        ) {
-
-            return 0.65;
-
-        }
-
-
-        /*
-         * Supports both:
-         *
-         * 0 - 1
-         *
-         * and
-         *
-         * 0 - 100
-         */
-
-        if (value > 1) {
-
-            return Math.max(
-                0,
-                Math.min(
-                    1,
-                    value / 100
-                )
-            );
-
-        }
-
-
-        return Math.max(
-            0,
-            Math.min(
-                1,
-                value
-            )
+                this.updateStatus("Paused");
+            }
         );
 
+
+        this.onClick(
+            ["#stopBtn", "#stop"],
+            () => {
+
+                if (this.videoController) {
+                    this.videoController.stop();
+                }
+
+                if (this.trackingEngine) {
+                    this.trackingEngine.reset();
+                }
+
+                this.updateStatus("Stopped");
+            }
+        );
+
+
+        this.onClick(
+            ["#resetBtn", "#reset"],
+            () => {
+
+                if (this.trackerManager) {
+                    this.trackerManager.clear();
+                }
+
+                if (this.trackingEngine) {
+                    this.trackingEngine.reset();
+                }
+
+                this.updateStatus("Reset");
+            }
+        );
+
+
+        this.onClick(
+            ["#editBtn", "#editModeBtn"],
+            () => {
+
+                this.editMode =
+                    !this.editMode;
+
+                document.body.classList.toggle(
+                    "edit-mode",
+                    this.editMode
+                );
+
+                this.updateStatus(
+                    this.editMode
+                        ? "Edit mode"
+                        : "Tracking mode"
+                );
+            }
+        );
+
+
+        this.onClick(
+            ["#lockBtn", "#lock"],
+            () => {
+
+                this.lockSelectedTracker();
+            }
+        );
+
+
+        this.onClick(
+            ["#unlockBtn", "#unlock"],
+            () => {
+
+                const tracker =
+                    this.getSelectedTracker();
+
+                if (!tracker) {
+                    this.updateStatus(
+                        "Select a tracker first"
+                    );
+                    return;
+                }
+
+                if (
+                    typeof tracker.unlock ===
+                    "function"
+                ) {
+                    tracker.unlock();
+                }
+
+                this.updateStatus(
+                    "Tracker unlocked"
+                );
+            }
+        );
+
+
+        this.onClick(
+            ["#deleteBtn", "#delete"],
+            () => {
+
+                if (!this.trackerManager) {
+                    return;
+                }
+
+                const tracker =
+                    this.getSelectedTracker();
+
+                if (!tracker) {
+                    return;
+                }
+
+                this.trackerManager.remove(
+                    tracker.id
+                );
+
+                this.updateStatus(
+                    "Tracker deleted"
+                );
+            }
+        );
+
+
+        this.bindShapeButtons();
+        this.bindColorPicker();
+        this.bindSensitivity();
     }
 
 
-    /* =====================================
-       GLOBAL STATUS
-    ====================================== */
+    /* =====================================================
+       CLICK HELPER
+    ===================================================== */
 
-    function updateGlobalStatus(
-        status
+    onClick(
+        selectors,
+        callback
     ) {
 
-        const element =
-            document.getElementById(
-                "trackingStatus"
+        for (
+            const selector of selectors
+        ) {
+
+            const element =
+                document.querySelector(
+                    selector
+                );
+
+            if (!element) {
+                continue;
+            }
+
+            element.addEventListener(
+                "click",
+                event => {
+
+                    event.preventDefault();
+
+                    callback(event);
+                }
             );
 
+            return;
+        }
+    }
 
-        if (!element) {
+
+    /* =====================================================
+       SHAPES
+    ===================================================== */
+
+    bindShapeButtons() {
+
+        const buttons = [
+            ["#squareBtn", "square"],
+            ["#circleBtn", "circle"],
+            ["#triangleBtn", "triangle"]
+        ];
+
+        for (
+            const [selector, shape]
+            of buttons
+        ) {
+
+            const button =
+                document.querySelector(
+                    selector
+                );
+
+            if (!button) {
+                continue;
+            }
+
+            button.addEventListener(
+                "click",
+                event => {
+
+                    event.preventDefault();
+
+                    this.selectedShape =
+                        shape;
+
+                    const tracker =
+                        this.getSelectedTracker();
+
+                    if (
+                        tracker &&
+                        !tracker.locked &&
+                        typeof tracker.setShape ===
+                        "function"
+                    ) {
+
+                        tracker.setShape(
+                            shape
+                        );
+                    }
+
+                    this.updateShapeButtons();
+                }
+            );
+        }
+
+        this.updateShapeButtons();
+    }
+
+
+    updateShapeButtons() {
+
+        const map = {
+            square:
+                document.querySelector(
+                    "#squareBtn"
+                ),
+
+            circle:
+                document.querySelector(
+                    "#circleBtn"
+                ),
+
+            triangle:
+                document.querySelector(
+                    "#triangleBtn"
+                )
+        };
+
+
+        Object.keys(map).forEach(
+            shape => {
+
+                const button =
+                    map[shape];
+
+                if (!button) {
+                    return;
+                }
+
+                button.classList.toggle(
+                    "active",
+                    shape ===
+                    this.selectedShape
+                );
+            }
+        );
+    }
+
+
+    /* =====================================================
+       COLOR
+    ===================================================== */
+
+    bindColorPicker() {
+
+        const input =
+            document.querySelector(
+                "#colorPicker"
+            ) ||
+            document.querySelector(
+                "#trackerColor"
+            );
+
+        if (!input) {
+            return;
+        }
+
+        this.selectedColor =
+            input.value ||
+            this.selectedColor;
+
+
+        input.addEventListener(
+            "input",
+            () => {
+
+                const tracker =
+                    this.getSelectedTracker();
+
+                if (
+                    tracker &&
+                    !tracker.locked &&
+                    typeof tracker.setColor ===
+                    "function"
+                ) {
+
+                    tracker.setColor(
+                        input.value
+                    );
+                }
+
+                this.selectedColor =
+                    input.value;
+            }
+        );
+    }
+
+
+    /* =====================================================
+       SENSITIVITY
+    ===================================================== */
+
+    bindSensitivity() {
+
+        const input =
+            document.querySelector(
+                "#sensitivity"
+            ) ||
+            document.querySelector(
+                "#sensitivitySlider"
+            );
+
+        if (!input) {
+            return;
+        }
+
+        const update =
+            () => {
+
+                const value =
+                    Math.max(
+                        0,
+                        Math.min(
+                            1,
+                            Number(
+                                input.value
+                            )
+                        )
+                    );
+
+                if (
+                    this.trackingEngine
+                ) {
+
+                    this.trackingEngine
+                        .setSensitivity(
+                            value
+                        );
+                }
+
+                const label =
+                    document.querySelector(
+                        "#sensitivityValue"
+                    );
+
+                if (label) {
+                    label.textContent =
+                        value.toFixed(2);
+                }
+            };
+
+
+        input.addEventListener(
+            "input",
+            update
+        );
+
+        update();
+    }
+
+
+    /* =====================================================
+       LOCK TRACKER
+    ===================================================== */
+
+    lockSelectedTracker() {
+
+        const tracker =
+            this.getSelectedTracker();
+
+
+        if (!tracker) {
+
+            this.updateStatus(
+                "Select a tracker first"
+            );
+
             return;
         }
 
 
-        element.textContent =
-            status;
+        if (tracker.locked) {
 
-        element.dataset.status =
-            String(
-                status
-            ).toLowerCase();
+            this.updateStatus(
+                "Tracker is already locked"
+            );
 
+            return;
+        }
+
+
+        const detections =
+            this.trackingEngine
+                ?.detections ||
+            [];
+
+
+        if (
+            detections.length === 0
+        ) {
+
+            this.updateStatus(
+                "No object detected"
+            );
+
+            return;
+        }
+
+
+        const target =
+            this.findTargetAtTracker(
+                tracker,
+                detections
+            );
+
+
+        if (!target) {
+
+            this.updateStatus(
+                "Place tracker directly on the object"
+            );
+
+            return;
+        }
+
+
+        /*
+         * सबसे महत्वपूर्ण हिस्सा:
+         *
+         * Lock के समय जिस object की ID मिली,
+         * वही ID tracker में permanently store होगी.
+         *
+         * बाद में दूसरा glass पास आ जाए,
+         * tracker उसकी ID स्वीकार नहीं करेगा.
+         */
+
+        if (
+            typeof tracker.lock ===
+            "function"
+        ) {
+
+            const success =
+                tracker.lock(
+                    target
+                );
+
+            if (success) {
+
+                this.updateStatus(
+                    `Locked to object ${target.id}`
+                );
+
+                return;
+            }
+        }
+
+
+        this.updateStatus(
+            "Unable to lock tracker"
+        );
     }
 
 
-    /* =====================================
-       VIDEO UPLOAD
-    ====================================== */
+    /* =====================================================
+       FIND TARGET
+    ===================================================== */
 
-    ui.on(
-        "video-file",
-        file => {
+    findTargetAtTracker(
+        tracker,
+        detections
+    ) {
 
-            if (!file) {
-                return;
+        let closest =
+            null;
+
+        let closestDistance =
+            Infinity;
+
+
+        for (
+            const detection
+            of detections
+        ) {
+
+            const center =
+                this.getDetectionCenter(
+                    detection
+                );
+
+            if (!center) {
+                continue;
             }
 
 
-            /*
-             * Clear previous tracking
-             * targets when a new video is
-             * loaded.
-             */
+            const dx =
+                center.x -
+                tracker.x;
 
-            trackerManager.trackers
-                .forEach(
-                    tracker => {
 
-                        tracker.target =
-                            null;
+            const dy =
+                center.y -
+                tracker.y;
 
-                        tracker.trackingId =
-                            null;
 
-                        tracker.targetId =
-                            null;
-
-                    }
+            const distance =
+                Math.sqrt(
+                    dx * dx +
+                    dy * dy
                 );
-
-
-            const success =
-                videoController.loadFile(
-                    file
-                );
-
-
-            if (!success) {
-
-                ui.showMessage(
-                    "Video upload failed.",
-                    "error"
-                );
-
-                return;
-
-            }
-
-
-            state.videoLoaded =
-                true;
-
-
-            updateGlobalStatus(
-                "LOADING VIDEO..."
-            );
-
-
-            ui.showMessage(
-                "Video loaded.",
-                "success"
-            );
-
-        }
-    );
-
-
-    /* =====================================
-       PLAY
-    ====================================== */
-
-    ui.on(
-        "play",
-        async () => {
-
-            if (
-                !state.videoLoaded
-            ) {
-
-                ui.showMessage(
-                    "First upload a video.",
-                    "error"
-                );
-
-                return;
-
-            }
-
-
-            const success =
-                await videoController.play();
-
-
-            if (!success) {
-
-                return;
-
-            }
-
-
-            state.tracking =
-                true;
 
 
             if (
-                trackingEngine &&
-                typeof trackingEngine.start ===
-                "function"
+                distance <
+                closestDistance
             ) {
 
-                trackingEngine.start();
+                closestDistance =
+                    distance;
 
+                closest =
+                    detection;
             }
-
-
-            updateGlobalStatus(
-                "PLAYING"
-            );
-
         }
-    );
 
 
-    /* =====================================
-       PAUSE
-    ====================================== */
+        /*
+         * Lock radius.
+         *
+         * बहुत दूर object पर accidentally lock
+         * नहीं होगा.
+         */
 
-    ui.on(
-        "pause",
-        () => {
-
-            videoController.pause();
-
-
-            state.tracking =
-                false;
-
-
-            if (
-                trackingEngine &&
-                typeof trackingEngine.pause ===
-                "function"
-            ) {
-
-                trackingEngine.pause();
-
-            }
+        const radius =
+            (
+                window.APP_CONFIG
+                    ?.tracker
+                    ?.lockRadius ??
+                150
+            ) / 1000;
 
 
-            updateGlobalStatus(
-                "PAUSED"
-            );
+        if (
+            closestDistance >
+            radius
+        ) {
 
+            return null;
         }
-    );
 
 
-    /* =====================================
-       STOP
-    ====================================== */
+        /*
+         * Stable ID जरूरी है.
+         *
+         * अगर detector target ID नहीं देता,
+         * तो tracker को blind lock नहीं करेंगे.
+         */
 
-    ui.on(
-        "stop",
-        () => {
-
-            videoController.stop();
-
-
-            state.tracking =
-                false;
-
-
-            if (
-                trackingEngine &&
-                typeof trackingEngine.stop ===
-                "function"
-            ) {
-
-                trackingEngine.stop();
-
-            }
+        const id =
+            closest?.id ??
+            closest?.trackingId ??
+            closest?.trackId ??
+            closest?.objectId;
 
 
-            updateGlobalStatus(
-                "STOPPED"
-            );
+        if (
+            id === null ||
+            id === undefined
+        ) {
 
+            return null;
         }
-    );
 
 
-    /* =====================================
-       TOGGLE EDIT MODE
-    ====================================== */
-
-    ui.on(
-        "toggle-edit",
-        () => {
-
-            const enabled =
-                trackerManager.toggleEditMode();
+        return closest;
+    }
 
 
-            state.editMode =
-                enabled;
+    /* =====================================================
+       DETECTION CENTER
+    ===================================================== */
 
+    getDetectionCenter(
+        detection
+    ) {
 
-            if (enabled) {
+        if (
+            detection?.center &&
+            Number.isFinite(
+                Number(
+                    detection.center.x
+                )
+            ) &&
+            Number.isFinite(
+                Number(
+                    detection.center.y
+                )
+            )
+        ) {
 
-                updateGlobalStatus(
-                    "EDIT MODE"
-                );
+            return {
 
-                ui.showMessage(
-                    "Edit mode enabled.",
-                    "info"
-                );
+                x:
+                    Number(
+                        detection.center.x
+                    ),
 
-            }
-
-            else {
-
-                updateGlobalStatus(
-                    "TRACKING MODE"
-                );
-
-                ui.showMessage(
-                    "Tracking mode enabled.",
-                    "success"
-                );
-
-            }
-
+                y:
+                    Number(
+                        detection.center.y
+                    )
+            };
         }
-    );
 
 
-    /* =====================================
-       ADD TRACKER
-    ====================================== */
-
-    ui.on(
-        "add-tracker",
-        () => {
-
-            const tracker =
-                trackerManager.addAtCenter({
-
-                    style:
-                        state.selectedStyle,
-
-                    color:
-                        getColor()
-
-                });
+        const rect =
+            detection?.rect ||
+            detection?.boundingBox ||
+            detection?.box;
 
 
-            if (tracker) {
-
-                trackerManager.select(
-                    tracker.id
-                );
-
-
-                ui.showMessage(
-                    "Tracker added.",
-                    "success"
-                );
-
-            }
-
+        if (!rect) {
+            return null;
         }
-    );
 
 
-    /* =====================================
-       STYLE
-    ====================================== */
-
-    ui.on(
-        "style",
-        style => {
-
-            if (
-                ![
-                    "square",
-                    "circle",
-                    "triangle"
-                ].includes(style)
-            ) {
-
-                return;
-
-            }
-
-
-            state.selectedStyle =
-                style;
-
-
-            const selected =
-                trackerManager.getSelected();
-
-
-            /*
-             * If no tracker is selected,
-             * create one immediately.
-             */
-
-            if (!selected) {
-
-                const tracker =
-                    trackerManager.addAtCenter({
-
-                        style,
-
-                        color:
-                            getColor()
-
-                    });
-
-
-                if (tracker) {
-
-                    trackerManager.select(
-                        tracker.id
-                    );
-
-                }
-
-
-                return;
-
-            }
-
-
-            trackerManager.setStyle(
-                style
-            );
-
-        }
-    );
-
-
-    /* =====================================
-       COLOR
-    ====================================== */
-
-    ui.on(
-        "color",
-        color => {
-
-            trackerManager.setColor(
-                color
-            );
-
-        }
-    );
-
-
-    /* =====================================
-       LOCK
-    ====================================== */
-
-    ui.on(
-        "lock",
-        () => {
-
-            const selected =
-                trackerManager.getSelected();
-
-
-            if (!selected) {
-
-                ui.showMessage(
-                    "Select a tracker first.",
-                    "error"
-                );
-
-                return;
-
-            }
-
-
-            /*
-             * If the tracking engine has a
-             * target under the tracker, use it.
-             */
-
-            let target =
-                null;
-
-
-            if (
-                trackingEngine &&
-                typeof trackingEngine
-                    .findTargetForTracker ===
-                "function"
-            ) {
-
-                target =
-                    trackingEngine
-                        .findTargetForTracker(
-                            selected
-                        );
-
-            }
-
-
-            /*
-             * If a target is available,
-             * lock to that exact target.
-             */
-
-            if (target) {
-
-                trackerManager
-                    .lockSelectedToTarget(
-                        target
-                    );
-
-                ui.showMessage(
-                    "Tracker locked to object.",
-                    "success"
-                );
-
-            }
-
-            else {
-
-                /*
-                 * Manual lock.
-                 *
-                 * The tracking engine can
-                 * assign a target later.
-                 */
-
-                trackerManager.lock(
-                    selected.id
-                );
-
-                ui.showMessage(
-                    "Tracker locked.",
-                    "success"
-                );
-
-            }
-
-
-            state.editMode =
-                false;
-
-
-            trackerManager.setEditMode(
-                false
-            );
-
-
-            updateGlobalStatus(
-                "LOCKED"
-            );
-
-        }
-    );
-
-
-    /* =====================================
-       UNLOCK
-    ====================================== */
-
-    ui.on(
-        "unlock",
-        () => {
-
-            const selected =
-                trackerManager.getSelected();
-
-
-            if (!selected) {
-
-                ui.showMessage(
-                    "Select a tracker first.",
-                    "error"
-                );
-
-                return;
-
-            }
-
-
-            trackerManager.unlock(
-                selected.id
-            );
-
-
-            state.editMode =
-                true;
-
-
-            trackerManager.setEditMode(
-                true
-            );
-
-
-            updateGlobalStatus(
-                "EDIT MODE"
-            );
-
-
-            ui.showMessage(
-                "Tracker unlocked.",
-                "info"
-            );
-
-        }
-    );
-
-
-    /* =====================================
-       DELETE
-    ====================================== */
-
-    ui.on(
-        "delete",
-        () => {
-
-            const selected =
-                trackerManager.getSelected();
-
-
-            if (!selected) {
-
-                ui.showMessage(
-                    "Select a tracker first.",
-                    "error"
-                );
-
-                return;
-
-            }
-
-
-            trackerManager.delete(
-                selected.id
-            );
-
-
-            ui.showMessage(
-                "Tracker deleted.",
-                "success"
-            );
-
-        }
-    );
-
-
-    /* =====================================
-       RESET
-    ====================================== */
-
-    ui.on(
-        "reset",
-        () => {
-
-            videoController.pause();
-
-            videoController.seek(
+        const left =
+            Number(
+                rect.left ??
+                rect.x ??
                 0
             );
 
 
-            state.tracking =
-                false;
-
-
-            if (
-                trackingEngine &&
-                typeof trackingEngine.reset ===
-                "function"
-            ) {
-
-                trackingEngine.reset();
-
-            }
-
-
-            trackerManager.clear();
-
-
-            /*
-             * Always create a new tracker
-             * after reset.
-             */
-
-            const tracker =
-                trackerManager.addAtCenter({
-
-                    style:
-                        state.selectedStyle,
-
-                    color:
-                        getColor()
-
-                });
-
-
-            if (tracker) {
-
-                trackerManager.select(
-                    tracker.id
-                );
-
-            }
-
-
-            state.editMode =
-                true;
-
-
-            trackerManager.setEditMode(
-                true
+        const top =
+            Number(
+                rect.top ??
+                rect.y ??
+                0
             );
 
 
-            updateGlobalStatus(
-                "RESET"
+        const width =
+            Number(
+                rect.width ??
+                0
             );
 
 
-            ui.showMessage(
-                "Project reset.",
-                "success"
-            );
-
-        }
-    );
-
-
-    /* =====================================
-       SENSITIVITY
-    ====================================== */
-
-    ui.on(
-        "sensitivity",
-        value => {
-
-            const sensitivity =
-                normalizeSensitivity(
-                    value
-                );
-
-
-            state.sensitivity =
-                sensitivity;
-
-
-            if (
-                trackingEngine
-            ) {
-
-                if (
-                    typeof trackingEngine
-                        .setSensitivity ===
-                    "function"
-                ) {
-
-                    trackingEngine
-                        .setSensitivity(
-                            sensitivity
-                        );
-
-                }
-
-                else {
-
-                    trackingEngine
-                        .sensitivity =
-                        sensitivity;
-
-                }
-
-            }
-
-
-            updateGlobalStatus(
-                `SENSITIVITY ${
-                    Math.round(
-                        sensitivity * 100
-                    )
-                }%`
-            );
-
-        }
-    );
-
-
-    /* =====================================
-       SEEK
-    ====================================== */
-
-    ui.on(
-        "seek-percent",
-        percent => {
-
-            if (
-                !state.videoLoaded
-            ) {
-
-                return;
-
-            }
-
-
-            const duration =
-                video.duration ||
-                0;
-
-
-            if (
-                duration <= 0
-            ) {
-
-                return;
-
-            }
-
-
-            const p =
-                Math.max(
-                    0,
-                    Math.min(
-                        100,
-                        Number(percent) ||
-                        0
-                    )
-                );
-
-
-            videoController.seek(
-                duration *
-                p /
-                100
-            );
-
-        }
-    );
-
-
-    /* =====================================
-       VIDEO FRAME EVENT
-    ====================================== */
-
-    videoController.on(
-        "frame",
-        frameInfo => {
-
-            /*
-             * The tracking engine receives
-             * the frame event automatically
-             * through its own connection.
-             */
-
-            if (
-                trackingEngine &&
-                typeof trackingEngine.processFrame ===
-                "function"
-            ) {
-
-                trackingEngine.processFrame(
-                    frameInfo
-                );
-
-            }
-
-        }
-    );
-
-
-    /* =====================================
-       TRACKING EVENTS
-    ====================================== */
-
-    if (trackingEngine) {
-
-        if (
-            typeof trackingEngine.on ===
-            "function"
-        ) {
-
-            trackingEngine.on(
-                "status",
-                status => {
-
-                    updateGlobalStatus(
-                        status
-                    );
-
-                }
+        const height =
+            Number(
+                rect.height ??
+                0
             );
 
 
-            trackingEngine.on(
-                "target",
-                target => {
+        return {
 
-                    if (!target) {
-                        return;
-                    }
+            x:
+                left +
+                width / 2,
 
-
-                    /*
-                     * Target data is forwarded
-                     * to locked trackers.
-                     */
-
-                    trackerManager
-                        .updateLockedTrackers(
-                            Array.isArray(target)
-                                ? target
-                                : [target],
-
-                            {
-                                sensitivity:
-                                    state.sensitivity
-                            }
-                        );
-
-                }
-            );
-
-
-            trackingEngine.on(
-                "targets",
-                targets => {
-
-                    if (
-                        !Array.isArray(
-                            targets
-                        )
-                    ) {
-
-                        return;
-
-                    }
-
-
-                    trackerManager
-                        .updateLockedTrackers(
-                            targets,
-
-                            {
-                                sensitivity:
-                                    state.sensitivity
-                            }
-                        );
-
-                }
-            );
-
-
-            trackingEngine.on(
-                "error",
-                error => {
-
-                    console.error(
-                        "Tracking error:",
-                        error
-                    );
-
-
-                    updateGlobalStatus(
-                        "TRACKING ERROR"
-                    );
-
-                }
-            );
-
-        }
-
+            y:
+                top +
+                height / 2
+        };
     }
 
 
-    /* =====================================
-       SELECTED TRACKER
-       AUTOMATIC STATUS
-    ====================================== */
+    /* =====================================================
+       VIDEO EVENTS
+    ===================================================== */
 
-    trackerManager.on(
-        "selected",
-        tracker => {
-
-            if (!tracker) {
-
-                return;
-
-            }
-
-
-            if (
-                tracker.locked
-            ) {
-
-                updateGlobalStatus(
-                    "LOCKED"
-                );
-
-            }
-
-            else if (
-                state.editMode
-            ) {
-
-                updateGlobalStatus(
-                    "EDIT MODE"
-                );
-
-            }
-
-        }
-    );
-
-
-    /* =====================================
-       COLOR HELPER
-    ====================================== */
-
-    function getColor() {
-
-        const picker =
-            document.getElementById(
-                "colorPicker"
-            );
-
+    bindVideoEvents() {
 
         if (
-            picker &&
-            picker.value
+            !this.videoController ||
+            !this.videoController.events
         ) {
-
-            return picker.value;
-
-        }
-
-
-        return (
-            config.tracker
-                ?.defaultColor ||
-            "#00ff66"
-        );
-
-    }
-
-
-    /* =====================================
-       SENSITIVITY HELPER
-    ====================================== */
-
-    function normalizeSensitivity(
-        value
-    ) {
-
-        value =
-            Number(value);
-
-
-        if (
-            !Number.isFinite(
-                value
-            )
-        ) {
-
-            return 0.65;
-
-        }
-
-
-        if (value > 1) {
-
-            value =
-                value / 100;
-
-        }
-
-
-        return Math.max(
-            0,
-            Math.min(
-                1,
-                value
-            )
-        );
-
-    }
-
-
-    /* =====================================
-       MOBILE / DESKTOP LAYOUT
-    ====================================== */
-
-    function updateStageLayout() {
-
-        if (!stage) {
             return;
         }
 
 
-        /*
-         * Never stretch the video itself.
-         *
-         * The stage is responsive and the
-         * video uses contain behavior from CSS.
-         */
+        this.videoController.events.on(
+            "loaded",
+            () => {
 
-        stage.style.position =
-            "relative";
-
-
-        trackerLayer.style.position =
-            "absolute";
+                this.updateStatus(
+                    "Video loaded"
+                );
+            }
+        );
 
 
-        trackerLayer.style.inset =
-            "0";
+        this.videoController.events.on(
+            "play",
+            () => {
+
+                if (
+                    this.trackingEngine
+                ) {
+
+                    this.trackingEngine.start();
+                }
+
+                this.updateStatus(
+                    "Tracking"
+                );
+            }
+        );
 
 
-        trackerLayer.style.pointerEvents =
-            "auto";
+        this.videoController.events.on(
+            "pause",
+            () => {
+
+                this.updateStatus(
+                    "Paused"
+                );
+            }
+        );
 
 
-        trackerLayer.style.touchAction =
-            "none";
+        this.videoController.events.on(
+            "ended",
+            () => {
 
+                if (
+                    this.trackingEngine
+                ) {
+
+                    this.trackingEngine.stop();
+                }
+
+                this.updateStatus(
+                    "Finished"
+                );
+            }
+        );
+
+
+        this.videoController.events.on(
+            "error",
+            error => {
+
+                this.updateStatus(
+                    error?.message ||
+                    "Video error"
+                );
+            }
+        );
     }
 
 
-    updateStageLayout();
+    /* =====================================================
+       TRACKER EVENTS
+    ===================================================== */
 
+    bindTrackerEvents() {
 
-    window.addEventListener(
-        "resize",
-        () => {
-
-            updateStageLayout();
-
-            trackerManager
-                .renderAll();
-
+        if (
+            !this.trackerManager ||
+            !this.trackerManager.events
+        ) {
+            return;
         }
-    );
 
 
-    /* =====================================
-       DEBUG ACCESS
-    ====================================== */
+        this.trackerManager.events.on(
+            "select",
+            tracker => {
 
-    window.TrackerApp = {
+                if (!tracker) {
+                    return;
+                }
 
-        state,
-
-        video,
-
-        stage,
-
-        videoController,
-
-        trackerManager,
-
-        trackingEngine,
-
-        ui
-
-    };
+                this.updateStatus(
+                    tracker.locked
+                        ? `Locked: ${tracker.targetId}`
+                        : "Tracker selected"
+                );
+            }
+        );
 
 
-    console.log(
-        "Video Object Tracker initialized.",
-        window.TrackerApp
-    );
+        this.trackerManager.events.on(
+            "lock",
+            tracker => {
 
-});
+                this.updateStatus(
+                    `Locked to object ${tracker.targetId}`
+                );
+            }
+        );
+
+
+        this.trackerManager.events.on(
+            "unlock",
+            () => {
+
+                this.updateStatus(
+                    "Tracker unlocked"
+                );
+            }
+        );
+
+
+        this.trackerManager.events.on(
+            "remove",
+            () => {
+
+                this.updateStatus(
+                    "Tracker deleted"
+                );
+            }
+        );
+    }
+
+
+    /* =====================================================
+       GET SELECTED TRACKER
+    ===================================================== */
+
+    getSelectedTracker() {
+
+        if (
+            !this.trackerManager
+        ) {
+
+            return null;
+        }
+
+
+        if (
+            typeof this.trackerManager.selected ===
+            "function"
+        ) {
+
+            return this.trackerManager.selected();
+        }
+
+
+        return null;
+    }
+
+
+    /* =====================================================
+       ADD TRACKER
+    ===================================================== */
+
+    addTracker(
+        options = {}
+    ) {
+
+        if (
+            !this.trackerManager ||
+            typeof this.trackerManager.add !==
+            "function"
+        ) {
+
+            return null;
+        }
+
+
+        const tracker =
+            this.trackerManager.add({
+
+                shape:
+                    options.shape ||
+                    this.selectedShape,
+
+                color:
+                    options.color ||
+                    this.selectedColor,
+
+                size:
+                    options.size ||
+                    120,
+
+                x:
+                    options.x ??
+                    0.5,
+
+                y:
+                    options.y ??
+                    0.5
+            });
+
+
+        if (tracker) {
+
+            this.trackerManager.select(
+                tracker.id
+            );
+
+            this.updateStatus(
+                "Tracker added"
+            );
+        }
+
+
+        return tracker;
+    }
+
+
+    /* =====================================================
+       STATUS
+    ===================================================== */
+
+    updateStatus(
+        text
+    ) {
+
+        const element =
+            document.querySelector(
+                "#trackingStatus"
+            ) ||
+            document.querySelector(
+                "#status"
+            ) ||
+            document.querySelector(
+                ".tracking-status"
+            );
+
+
+        if (element) {
+
+            element.textContent =
+                text;
+        }
+    }
+}
+
+
+/* =========================================================
+   GLOBAL APP
+========================================================= */
+
+let app = null;
+
+
+function initializeApp() {
+
+    if (app) {
+        return app;
+    }
+
+
+    app =
+        new ObjectTrackerApp();
+
+
+    app.init();
+
+
+    window.app =
+        app;
+
+
+    return app;
+}
+
+
+/* =========================================================
+   START
+========================================================= */
+
+if (
+    typeof document !==
+    "undefined"
+) {
+
+    if (
+        document.readyState ===
+        "loading"
+    ) {
+
+        document.addEventListener(
+            "DOMContentLoaded",
+            initializeApp,
+            {
+                once: true
+            }
+        );
+
+    }
+    else {
+
+        initializeApp();
+
+    }
+}

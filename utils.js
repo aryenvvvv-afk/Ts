@@ -1,1092 +1,1243 @@
-/* =========================================
-   VIDEO OBJECT TRACKER
-   utils.js
-   FILE 4 / 10
-========================================= */
-
 "use strict";
 
+/*
+ * =========================================================
+ * utils.js
+ * Object Tracker
+ *
+ * Common utility functions used by all other files.
+ * =========================================================
+ */
 
-window.TrackerUtils = {
 
-    /* =====================================
-       NUMBER
-    ====================================== */
+/* =========================================================
+   NUMBER
+========================================================= */
 
-    clamp(
-        value,
+function toNumber(value, fallback = 0) {
+
+    const number = Number(value);
+
+    return Number.isFinite(number)
+        ? number
+        : fallback;
+}
+
+
+/* =========================================================
+   CLAMP
+========================================================= */
+
+function clamp(
+    value,
+    min,
+    max
+) {
+
+    const number =
+        toNumber(value, min);
+
+    return Math.max(
         min,
-        max
+        Math.min(
+            max,
+            number
+        )
+    );
+}
+
+
+/* =========================================================
+   LERP
+========================================================= */
+
+function lerp(
+    start,
+    end,
+    amount
+) {
+
+    const t =
+        clamp(
+            amount,
+            0,
+            1
+        );
+
+    return (
+        start +
+        (
+            end - start
+        ) *
+        t
+    );
+
+}
+
+
+/* =========================================================
+   DISTANCE
+========================================================= */
+
+function distance(
+    x1,
+    y1,
+    x2,
+    y2
+) {
+
+    const dx =
+        x2 - x1;
+
+    const dy =
+        y2 - y1;
+
+    return Math.sqrt(
+        dx * dx +
+        dy * dy
+    );
+
+}
+
+
+/* =========================================================
+   POINT DISTANCE
+========================================================= */
+
+function pointDistance(
+    a,
+    b
+) {
+
+    if (!a || !b) {
+        return Infinity;
+    }
+
+    return distance(
+        toNumber(a.x),
+        toNumber(a.y),
+        toNumber(b.x),
+        toNumber(b.y)
+    );
+
+}
+
+
+/* =========================================================
+   RECT CENTER
+========================================================= */
+
+function rectCenter(
+    rect
+) {
+
+    if (!rect) {
+
+        return {
+            x: 0,
+            y: 0
+        };
+
+    }
+
+    return {
+
+        x:
+            (
+                toNumber(rect.left) +
+                toNumber(rect.right)
+            ) / 2,
+
+        y:
+            (
+                toNumber(rect.top) +
+                toNumber(rect.bottom)
+            ) / 2
+
+    };
+
+}
+
+
+/* =========================================================
+   RECT WIDTH
+========================================================= */
+
+function rectWidth(
+    rect
+) {
+
+    if (!rect) {
+        return 0;
+    }
+
+    if (
+        Number.isFinite(rect.width)
     ) {
-
-        value = Number(value);
-
-        if (!Number.isFinite(value)) {
-            value = min;
-        }
 
         return Math.max(
-            min,
-            Math.min(
-                max,
-                value
-            )
+            0,
+            rect.width
         );
 
-    },
+    }
+
+    return Math.max(
+        0,
+        toNumber(rect.right) -
+        toNumber(rect.left)
+    );
+
+}
 
 
-    /* =====================================
-       LINEAR INTERPOLATION
-    ====================================== */
+/* =========================================================
+   RECT HEIGHT
+========================================================= */
 
-    lerp(
-        start,
-        end,
-        amount
+function rectHeight(
+    rect
+) {
+
+    if (!rect) {
+        return 0;
+    }
+
+    if (
+        Number.isFinite(rect.height)
     ) {
 
-        amount =
-            this.clamp(
-                Number(amount) || 0,
+        return Math.max(
+            0,
+            rect.height
+        );
+
+    }
+
+    return Math.max(
+        0,
+        toNumber(rect.bottom) -
+        toNumber(rect.top)
+    );
+
+}
+
+
+/* =========================================================
+   RECT AREA
+========================================================= */
+
+function rectArea(
+    rect
+) {
+
+    return (
+        rectWidth(rect) *
+        rectHeight(rect)
+    );
+
+}
+
+
+/* =========================================================
+   RECT IOU
+========================================================= */
+
+function rectIoU(
+    a,
+    b
+) {
+
+    if (!a || !b) {
+        return 0;
+    }
+
+
+    const left =
+        Math.max(
+            toNumber(a.left),
+            toNumber(b.left)
+        );
+
+
+    const top =
+        Math.max(
+            toNumber(a.top),
+            toNumber(b.top)
+        );
+
+
+    const right =
+        Math.min(
+            toNumber(a.right),
+            toNumber(b.right)
+        );
+
+
+    const bottom =
+        Math.min(
+            toNumber(a.bottom),
+            toNumber(b.bottom)
+        );
+
+
+    const width =
+        Math.max(
+            0,
+            right - left
+        );
+
+
+    const height =
+        Math.max(
+            0,
+            bottom - top
+        );
+
+
+    const intersection =
+        width * height;
+
+
+    if (intersection <= 0) {
+        return 0;
+    }
+
+
+    const union =
+        rectArea(a) +
+        rectArea(b) -
+        intersection;
+
+
+    if (union <= 0) {
+        return 0;
+    }
+
+
+    return (
+        intersection /
+        union
+    );
+
+}
+
+
+/* =========================================================
+   RECT FROM CENTER
+========================================================= */
+
+function rectFromCenter(
+    centerX,
+    centerY,
+    width,
+    height
+) {
+
+    const w =
+        Math.max(
+            0,
+            toNumber(width)
+        );
+
+    const h =
+        Math.max(
+            0,
+            toNumber(height)
+        );
+
+
+    const x =
+        toNumber(centerX);
+
+    const y =
+        toNumber(centerY);
+
+
+    return {
+
+        left:
+            x - w / 2,
+
+        top:
+            y - h / 2,
+
+        right:
+            x + w / 2,
+
+        bottom:
+            y + h / 2,
+
+        width:
+            w,
+
+        height:
+            h
+
+    };
+
+}
+
+
+/* =========================================================
+   NORMALIZE RECT
+========================================================= */
+
+function normalizeRect(
+    rect
+) {
+
+    if (!rect) {
+        return null;
+    }
+
+
+    let left =
+        toNumber(rect.left);
+
+    let right =
+        toNumber(rect.right);
+
+    let top =
+        toNumber(rect.top);
+
+    let bottom =
+        toNumber(rect.bottom);
+
+
+    if (right < left) {
+
+        const temp =
+            left;
+
+        left =
+            right;
+
+        right =
+            temp;
+
+    }
+
+
+    if (bottom < top) {
+
+        const temp =
+            top;
+
+        top =
+            bottom;
+
+        bottom =
+            temp;
+
+    }
+
+
+    return {
+
+        left,
+        top,
+        right,
+        bottom,
+
+        width:
+            right - left,
+
+        height:
+            bottom - top
+
+    };
+
+}
+
+
+/* =========================================================
+   CLAMP POINT TO RECT
+========================================================= */
+
+function clampPointToRect(
+    point,
+    rect
+) {
+
+    if (!point || !rect) {
+
+        return {
+            x: 0,
+            y: 0
+        };
+
+    }
+
+
+    return {
+
+        x:
+            clamp(
+                point.x,
+                rect.left,
+                rect.right
+            ),
+
+        y:
+            clamp(
+                point.y,
+                rect.top,
+                rect.bottom
+            )
+
+    };
+
+}
+
+
+/* =========================================================
+   NORMALIZED POINT
+========================================================= */
+
+function normalizePoint(
+    x,
+    y,
+    width,
+    height
+) {
+
+    const w =
+        Math.max(
+            1,
+            toNumber(width, 1)
+        );
+
+    const h =
+        Math.max(
+            1,
+            toNumber(height, 1)
+        );
+
+
+    return {
+
+        x:
+            clamp(
+                toNumber(x) / w,
                 0,
                 1
-            );
-
-        return (
-            Number(start) +
-            (
-                Number(end) -
-                Number(start)
-            ) *
-            amount
-        );
-
-    },
-
-
-    /* =====================================
-       DISTANCE
-    ====================================== */
-
-    distance(
-        x1,
-        y1,
-        x2,
-        y2
-    ) {
-
-        const dx =
-            Number(x2) -
-            Number(x1);
-
-        const dy =
-            Number(y2) -
-            Number(y1);
-
-        return Math.sqrt(
-            dx * dx +
-            dy * dy
-        );
-
-    },
-
-
-    /* =====================================
-       RECTANGLE CENTER
-    ====================================== */
-
-    rectCenter(
-        rect
-    ) {
-
-        if (!rect) {
-
-            return {
-                x: 0,
-                y: 0
-            };
-
-        }
-
-        return {
-
-            x:
-                Number(rect.x || 0) +
-                Number(rect.width || 0) / 2,
-
-            y:
-                Number(rect.y || 0) +
-                Number(rect.height || 0) / 2
-
-        };
-
-    },
-
-
-    /* =====================================
-       RECTANGLE DISTANCE
-    ====================================== */
-
-    rectDistance(
-        a,
-        b
-    ) {
-
-        const ca =
-            this.rectCenter(a);
-
-        const cb =
-            this.rectCenter(b);
-
-        return this.distance(
-            ca.x,
-            ca.y,
-            cb.x,
-            cb.y
-        );
-
-    },
-
-
-    /* =====================================
-       RECTANGLE COPY
-    ====================================== */
-
-    cloneRect(
-        rect
-    ) {
-
-        if (!rect) {
-            return null;
-        }
-
-        return {
-
-            x:
-                Number(rect.x || 0),
-
-            y:
-                Number(rect.y || 0),
-
-            width:
-                Number(rect.width || 0),
-
-            height:
-                Number(rect.height || 0)
-
-        };
-
-    },
-
-
-    /* =====================================
-       POINT
-    ====================================== */
-
-    point(
-        x,
-        y
-    ) {
-
-        return {
-
-            x: Number(x) || 0,
-
-            y: Number(y) || 0
-
-        };
-
-    },
-
-
-    /* =====================================
-       NORMALIZE RECT
-    ====================================== */
-
-    normalizeRect(
-        rect
-    ) {
-
-        if (!rect) {
-            return null;
-        }
-
-
-        let x =
-            Number(rect.x) || 0;
-
-        let y =
-            Number(rect.y) || 0;
-
-        let width =
-            Number(rect.width) || 0;
-
-        let height =
-            Number(rect.height) || 0;
-
-
-        if (width < 0) {
-
-            x += width;
-
-            width =
-                Math.abs(width);
-
-        }
-
-
-        if (height < 0) {
-
-            y += height;
-
-            height =
-                Math.abs(height);
-
-        }
-
-
-        return {
-
-            x,
-
-            y,
-
-            width,
-
-            height
-
-        };
-
-    },
-
-
-    /* =====================================
-       POINT INSIDE RECTANGLE
-    ====================================== */
-
-    pointInRect(
-        x,
-        y,
-        rect
-    ) {
-
-        if (!rect) {
-            return false;
-        }
-
-
-        return (
-
-            x >= rect.x &&
-
-            x <=
-                rect.x +
-                rect.width &&
-
-            y >= rect.y &&
-
-            y <=
-                rect.y +
-                rect.height
-
-        );
-
-    },
-
-
-    /* =====================================
-       RECTANGLE OVERLAP
-    ====================================== */
-
-    rectanglesOverlap(
-        a,
-        b
-    ) {
-
-        if (!a || !b) {
-            return false;
-        }
-
-
-        return !(
-            a.x +
-            a.width <
-            b.x ||
-
-            b.x +
-            b.width <
-            a.x ||
-
-            a.y +
-            a.height <
-            b.y ||
-
-            b.y +
-            b.height <
-            a.y
-        );
-
-    },
-
-
-    /* =====================================
-       MAP VALUE
-    ====================================== */
-
-    mapRange(
-        value,
-        inMin,
-        inMax,
-        outMin,
-        outMax
-    ) {
-
-        if (
-            inMax === inMin
-        ) {
-
-            return outMin;
-
-        }
-
-
-        const ratio =
-            (
-                value -
-                inMin
-            ) /
-            (
-                inMax -
-                inMin
-            );
-
-
-        return (
-            outMin +
-            ratio *
-            (
-                outMax -
-                outMin
-            )
-        );
-
-    },
-
-
-    /* =====================================
-       VIDEO → DISPLAY COORDINATES
-    ====================================== */
-
-    videoToDisplayPoint(
-        x,
-        y,
-        videoWidth,
-        videoHeight,
-        displayWidth,
-        displayHeight
-    ) {
-
-        videoWidth =
-            Number(videoWidth) || 1;
-
-        videoHeight =
-            Number(videoHeight) || 1;
-
-        displayWidth =
-            Number(displayWidth) || 1;
-
-        displayHeight =
-            Number(displayHeight) || 1;
-
-
-        /*
-         * object-fit: contain
-         *
-         * Calculate the actual displayed
-         * video rectangle.
-         */
-
-        const scale =
-            Math.min(
-                displayWidth /
-                    videoWidth,
-
-                displayHeight /
-                    videoHeight
-            );
-
-
-        const renderedWidth =
-            videoWidth *
-            scale;
-
-
-        const renderedHeight =
-            videoHeight *
-            scale;
-
-
-        const offsetX =
-            (
-                displayWidth -
-                renderedWidth
-            ) / 2;
-
-
-        const offsetY =
-            (
-                displayHeight -
-                renderedHeight
-            ) / 2;
-
-
-        return {
-
-            x:
-                offsetX +
-                Number(x) *
-                scale,
-
-            y:
-                offsetY +
-                Number(y) *
-                scale
-
-        };
-
-    },
-
-
-    /* =====================================
-       DISPLAY → VIDEO COORDINATES
-    ====================================== */
-
-    displayToVideoPoint(
-        x,
-        y,
-        videoWidth,
-        videoHeight,
-        displayWidth,
-        displayHeight
-    ) {
-
-        videoWidth =
-            Number(videoWidth) || 1;
-
-        videoHeight =
-            Number(videoHeight) || 1;
-
-        displayWidth =
-            Number(displayWidth) || 1;
-
-        displayHeight =
-            Number(displayHeight) || 1;
-
-
-        const scale =
-            Math.min(
-                displayWidth /
-                    videoWidth,
-
-                displayHeight /
-                    videoHeight
-            );
-
-
-        const renderedWidth =
-            videoWidth *
-            scale;
-
-
-        const renderedHeight =
-            videoHeight *
-            scale;
-
-
-        const offsetX =
-            (
-                displayWidth -
-                renderedWidth
-            ) / 2;
-
-
-        const offsetY =
-            (
-                displayHeight -
-                renderedHeight
-            ) / 2;
-
-
-        return {
-
-            x:
-                (
-                    Number(x) -
-                    offsetX
-                ) /
-                scale,
-
-            y:
-                (
-                    Number(y) -
-                    offsetY
-                ) /
-                scale
-
-        };
-
-    },
-
-
-    /* =====================================
-       VIDEO → DISPLAY RECTANGLE
-    ====================================== */
-
-    videoToDisplayRect(
-        rect,
-        videoWidth,
-        videoHeight,
-        displayWidth,
-        displayHeight
-    ) {
-
-        if (!rect) {
-            return null;
-        }
-
-
-        const topLeft =
-            this.videoToDisplayPoint(
-                rect.x,
-                rect.y,
-                videoWidth,
-                videoHeight,
-                displayWidth,
-                displayHeight
-            );
-
-
-        const bottomRight =
-            this.videoToDisplayPoint(
-                rect.x +
-                    rect.width,
-
-                rect.y +
-                    rect.height,
-
-                videoWidth,
-                videoHeight,
-                displayWidth,
-                displayHeight
-            );
-
-
-        return {
-
-            x:
-                topLeft.x,
-
-            y:
-                topLeft.y,
-
-            width:
-                bottomRight.x -
-                topLeft.x,
-
-            height:
-                bottomRight.y -
-                topLeft.y
-
-        };
-
-    },
-
-
-    /* =====================================
-       DISPLAY → VIDEO RECTANGLE
-    ====================================== */
-
-    displayToVideoRect(
-        rect,
-        videoWidth,
-        videoHeight,
-        displayWidth,
-        displayHeight
-    ) {
-
-        if (!rect) {
-            return null;
-        }
-
-
-        const topLeft =
-            this.displayToVideoPoint(
-                rect.x,
-                rect.y,
-                videoWidth,
-                videoHeight,
-                displayWidth,
-                displayHeight
-            );
-
-
-        const bottomRight =
-            this.displayToVideoPoint(
-                rect.x +
-                    rect.width,
-
-                rect.y +
-                    rect.height,
-
-                videoWidth,
-                videoHeight,
-                displayWidth,
-                displayHeight
-            );
-
-
-        return {
-
-            x:
-                topLeft.x,
-
-            y:
-                topLeft.y,
-
-            width:
-                bottomRight.x -
-                topLeft.x,
-
-            height:
-                bottomRight.y -
-                topLeft.y
-
-        };
-
-    },
-
-
-    /* =====================================
-       POINTER POSITION
-    ====================================== */
-
-    getPointerPosition(
-        event,
-        element
-    ) {
-
-        if (!element) {
-
-            return {
-
-                x: 0,
-
-                y: 0
-
-            };
-
-        }
-
-
-        const rect =
-            element.getBoundingClientRect();
-
-
-        let clientX =
-            0;
-
-        let clientY =
-            0;
-
-
-        if (
-            event.touches &&
-            event.touches.length
-        ) {
-
-            clientX =
-                event.touches[0].clientX;
-
-            clientY =
-                event.touches[0].clientY;
-
-        }
-
-        else if (
-            event.changedTouches &&
-            event.changedTouches.length
-        ) {
-
-            clientX =
-                event.changedTouches[0]
-                    .clientX;
-
-            clientY =
-                event.changedTouches[0]
-                    .clientY;
-
-        }
-
-        else {
-
-            clientX =
-                event.clientX;
-
-            clientY =
-                event.clientY;
-
-        }
-
-
-        return {
-
-            x:
-                clientX -
-                rect.left,
-
-            y:
-                clientY -
-                rect.top
-
-        };
-
-    },
-
-
-    /* =====================================
-       POINTER → VIDEO
-    ====================================== */
-
-    pointerToVideo(
-        event,
-        stage,
-        video
-    ) {
-
-        const point =
-            this.getPointerPosition(
-                event,
-                stage
-            );
-
-
-        if (!video) {
-            return point;
-        }
-
-
-        return this.displayToVideoPoint(
-
-            point.x,
-
-            point.y,
-
-            video.videoWidth ||
-                video.clientWidth ||
-                1,
-
-            video.videoHeight ||
-                video.clientHeight ||
-                1,
-
-            stage.clientWidth ||
-                1,
-
-            stage.clientHeight ||
+            ),
+
+        y:
+            clamp(
+                toNumber(y) / h,
+                0,
                 1
+            )
 
+    };
+
+}
+
+
+/* =========================================================
+   DENORMALIZE POINT
+========================================================= */
+
+function denormalizePoint(
+    x,
+    y,
+    width,
+    height
+) {
+
+    return {
+
+        x:
+            clamp(
+                toNumber(x),
+                0,
+                1
+            ) *
+            toNumber(width),
+
+        y:
+            clamp(
+                toNumber(y),
+                0,
+                1
+            ) *
+            toNumber(height)
+
+    };
+
+}
+
+
+/* =========================================================
+   NORMALIZE RECT
+========================================================= */
+
+function normalizeRectToUnit(
+    rect,
+    width,
+    height
+) {
+
+    if (!rect) {
+        return null;
+    }
+
+
+    const w =
+        Math.max(
+            1,
+            toNumber(width, 1)
         );
 
-    },
-
-
-    /* =====================================
-       FORMAT TIME
-    ====================================== */
-
-    formatTime(
-        seconds
-    ) {
-
-        seconds =
-            Number(seconds);
-
-
-        if (
-            !Number.isFinite(
-                seconds
-            ) ||
-            seconds < 0
-        ) {
-
-            seconds = 0;
-
-        }
-
-
-        const hours =
-            Math.floor(
-                seconds / 3600
-            );
-
-
-        const minutes =
-            Math.floor(
-                (
-                    seconds %
-                    3600
-                ) / 60
-            );
-
-
-        const secs =
-            Math.floor(
-                seconds % 60
-            );
-
-
-        const pad =
-            value =>
-                String(value)
-                    .padStart(
-                        2,
-                        "0"
-                    );
-
-
-        if (hours > 0) {
-
-            return (
-                pad(hours) +
-                ":" +
-                pad(minutes) +
-                ":" +
-                pad(secs)
-            );
-
-        }
-
-
-        return (
-            pad(minutes) +
-            ":" +
-            pad(secs)
+    const h =
+        Math.max(
+            1,
+            toNumber(height, 1)
         );
 
-    },
+
+    return {
+
+        left:
+            clamp(
+                rect.left / w,
+                0,
+                1
+            ),
+
+        top:
+            clamp(
+                rect.top / h,
+                0,
+                1
+            ),
+
+        right:
+            clamp(
+                rect.right / w,
+                0,
+                1
+            ),
+
+        bottom:
+            clamp(
+                rect.bottom / h,
+                0,
+                1
+            ),
+
+        width:
+            clamp(
+                rectWidth(rect) / w,
+                0,
+                1
+            ),
+
+        height:
+            clamp(
+                rectHeight(rect) / h,
+                0,
+                1
+            )
+
+    };
+
+}
 
 
-    /* =====================================
-       UUID
-    ====================================== */
+/* =========================================================
+   DENORMALIZE RECT
+========================================================= */
 
-    createId(
-        prefix = "tracker"
+function denormalizeRect(
+    rect,
+    width,
+    height
+) {
+
+    if (!rect) {
+        return null;
+    }
+
+
+    const w =
+        toNumber(width);
+
+    const h =
+        toNumber(height);
+
+
+    return {
+
+        left:
+            rect.left * w,
+
+        top:
+            rect.top * h,
+
+        right:
+            rect.right * w,
+
+        bottom:
+            rect.bottom * h,
+
+        width:
+            rect.width * w,
+
+        height:
+            rect.height * h
+
+    };
+
+}
+
+
+/* =========================================================
+   UUID
+========================================================= */
+
+function createId(
+    prefix = "id"
+) {
+
+    if (
+        typeof crypto !== "undefined" &&
+        typeof crypto.randomUUID === "function"
     ) {
-
-        if (
-            typeof crypto !==
-            "undefined" &&
-            typeof crypto.randomUUID ===
-            "function"
-        ) {
-
-            return (
-                prefix +
-                "-" +
-                crypto.randomUUID()
-            );
-
-        }
-
 
         return (
             prefix +
-            "-" +
-            Date.now() +
-            "-" +
-            Math.random()
-                .toString(36)
-                .slice(2)
+            "_" +
+            crypto.randomUUID()
         );
 
-    },
+    }
 
 
-    /* =====================================
-       COLOR VALIDATION
-    ====================================== */
+    return (
 
-    isValidColor(
-        color
+        prefix +
+        "_" +
+        Date.now().toString(36) +
+        "_" +
+        Math.random()
+            .toString(36)
+            .slice(2, 10)
+
+    );
+
+}
+
+
+/* =========================================================
+   DEEP CLONE
+========================================================= */
+
+function deepClone(
+    value
+) {
+
+    if (
+        value === null ||
+        value === undefined
     ) {
 
-        if (
-            typeof color !==
-            "string"
-        ) {
+        return value;
 
-            return false;
-
-        }
+    }
 
 
-        return /^#[0-9a-fA-F]{6}$/
-            .test(color);
-
-    },
-
-
-    /* =====================================
-       NORMALIZE COLOR
-    ====================================== */
-
-    normalizeColor(
-        color,
-        fallback = "#00ff66"
+    if (
+        typeof structuredClone ===
+        "function"
     ) {
-
-        if (
-            this.isValidColor(
-                color
-            )
-        ) {
-
-            return color;
-
-        }
-
-
-        return fallback;
-
-    },
-
-
-    /* =====================================
-       DEEP CLONE
-    ====================================== */
-
-    clone(
-        value
-    ) {
-
-        if (
-            value === null ||
-            value === undefined
-        ) {
-
-            return value;
-
-        }
-
 
         try {
 
-            return JSON.parse(
-                JSON.stringify(
-                    value
-                )
+            return structuredClone(
+                value
             );
 
-        } catch (_) {
-
-            return value;
-
         }
+        catch (_) {}
 
-    },
-
-
-    /* =====================================
-       IS MOBILE
-    ====================================== */
-
-    isMobile() {
-
-        return (
-            window.matchMedia &&
-            window.matchMedia(
-                "(max-width: 700px)"
-            ).matches
-        );
-
-    },
+    }
 
 
-    /* =====================================
-       SAFE NUMBER
-    ====================================== */
+    return JSON.parse(
+        JSON.stringify(value)
+    );
 
-    number(
-        value,
-        fallback = 0
+}
+
+
+/* =========================================================
+   COLOR VALIDATION
+========================================================= */
+
+function isValidColor(
+    color
+) {
+
+    if (
+        typeof color !==
+        "string"
     ) {
 
-        const number =
-            Number(value);
+        return false;
+
+    }
 
 
-        return Number.isFinite(
-            number
-        )
-            ? number
-            : fallback;
-
-    },
+    const value =
+        color.trim();
 
 
-    /* =====================================
-       REQUEST ANIMATION
-    ====================================== */
+    if (!value) {
+        return false;
+    }
 
-    nextFrame(
+
+    const element =
+        document.createElement(
+            "div"
+        );
+
+
+    element.style.color =
+        value;
+
+
+    return (
+        element.style.color !== ""
+    );
+
+}
+
+
+/* =========================================================
+   HEX COLOR
+========================================================= */
+
+function normalizeColor(
+    color,
+    fallback = "#ff0000"
+) {
+
+    if (
+        !isValidColor(color)
+    ) {
+
+        return fallback;
+
+    }
+
+
+    return color;
+
+}
+
+
+/* =========================================================
+   TIME FORMAT
+========================================================= */
+
+function formatTime(
+    seconds
+) {
+
+    const total =
+        Math.max(
+            0,
+            Math.floor(
+                toNumber(seconds)
+            )
+        );
+
+
+    const minutes =
+        Math.floor(
+            total / 60
+        );
+
+
+    const secs =
+        total % 60;
+
+
+    return (
+
+        String(minutes)
+            .padStart(2, "0") +
+
+        ":" +
+
+        String(secs)
+            .padStart(2, "0")
+
+    );
+
+}
+
+
+/* =========================================================
+   EVENT EMITTER
+========================================================= */
+
+class SimpleEventEmitter {
+
+    constructor() {
+
+        this.events =
+            new Map();
+
+    }
+
+
+    on(
+        event,
         callback
     ) {
 
         if (
-            typeof requestAnimationFrame ===
+            typeof callback !==
             "function"
         ) {
 
-            return requestAnimationFrame(
-                callback
+            return () => {};
+
+        }
+
+
+        if (
+            !this.events.has(event)
+        ) {
+
+            this.events.set(
+                event,
+                new Set()
             );
 
         }
 
 
-        return setTimeout(
-            callback,
-            16
-        );
-
-    },
-
-
-    /* =====================================
-       CANCEL ANIMATION
-    ====================================== */
-
-    cancelFrame(
-        id
-    ) {
-
-        if (
-            typeof cancelAnimationFrame ===
-            "function"
-        ) {
-
-            cancelAnimationFrame(
-                id
+        const listeners =
+            this.events.get(
+                event
             );
 
-        } else {
 
-            clearTimeout(id);
+        listeners.add(
+            callback
+        );
+
+
+        return () => {
+
+            listeners.delete(
+                callback
+            );
+
+        };
+
+    }
+
+
+    off(
+        event,
+        callback
+    ) {
+
+        const listeners =
+            this.events.get(
+                event
+            );
+
+
+        if (!listeners) {
+            return;
+        }
+
+
+        listeners.delete(
+            callback
+        );
+
+    }
+
+
+    emit(
+        event,
+        ...args
+    ) {
+
+        const listeners =
+            this.events.get(
+                event
+            );
+
+
+        if (!listeners) {
+            return;
+        }
+
+
+        for (
+            const callback
+            of [...listeners]
+        ) {
+
+            try {
+
+                callback(
+                    ...args
+                );
+
+            }
+            catch (error) {
+
+                console.error(
+                    error
+                );
+
+            }
 
         }
 
     }
 
-};
+
+    clear() {
+
+        this.events.clear();
+
+    }
+
+}
+
+
+/* =========================================================
+   DOM HELPER
+========================================================= */
+
+function $(selector) {
+
+    if (
+        typeof document ===
+        "undefined"
+    ) {
+
+        return null;
+
+    }
+
+
+    return document.querySelector(
+        selector
+    );
+
+}
+
+
+/* =========================================================
+   GET ELEMENT BY ID
+========================================================= */
+
+function getElement(
+    id
+) {
+
+    if (
+        typeof document ===
+        "undefined"
+    ) {
+
+        return null;
+
+    }
+
+
+    return document.getElementById(
+        id
+    );
+
+}
+
+
+/* =========================================================
+   SAFE CLASS TOGGLE
+========================================================= */
+
+function toggleClass(
+    element,
+    className,
+    enabled
+) {
+
+    if (
+        !element ||
+        !element.classList
+    ) {
+
+        return;
+
+    }
+
+
+    element.classList.toggle(
+        className,
+        Boolean(enabled)
+    );
+
+}
+
+
+/* =========================================================
+   RAF
+========================================================= */
+
+function nextFrame(
+    callback
+) {
+
+    if (
+        typeof requestAnimationFrame ===
+        "function"
+    ) {
+
+        return requestAnimationFrame(
+            callback
+        );
+
+    }
+
+
+    return setTimeout(
+        callback,
+        16
+    );
+
+}
+
+
+/* =========================================================
+   SAFE JSON
+========================================================= */
+
+function safeJsonParse(
+    value,
+    fallback = null
+) {
+
+    try {
+
+        return JSON.parse(
+            value
+        );
+
+    }
+    catch (_) {
+
+        return fallback;
+
+    }
+
+}
+
+
+/* =========================================================
+   GLOBAL EXPORT
+========================================================= */
+
+if (
+    typeof window !==
+    "undefined"
+) {
+
+    window.toNumber =
+        toNumber;
+
+    window.clamp =
+        clamp;
+
+    window.lerp =
+        lerp;
+
+    window.distance =
+        distance;
+
+    window.pointDistance =
+        pointDistance;
+
+    window.rectCenter =
+        rectCenter;
+
+    window.rectWidth =
+        rectWidth;
+
+    window.rectHeight =
+        rectHeight;
+
+    window.rectArea =
+        rectArea;
+
+    window.rectIoU =
+        rectIoU;
+
+    window.rectFromCenter =
+        rectFromCenter;
+
+    window.normalizeRect =
+        normalizeRect;
+
+    window.clampPointToRect =
+        clampPointToRect;
+
+    window.normalizePoint =
+        normalizePoint;
+
+    window.denormalizePoint =
+        denormalizePoint;
+
+    window.normalizeRectToUnit =
+        normalizeRectToUnit;
+
+    window.denormalizeRect =
+        denormalizeRect;
+
+    window.createId =
+        createId;
+
+    window.deepClone =
+        deepClone;
+
+    window.isValidColor =
+        isValidColor;
+
+    window.normalizeColor =
+        normalizeColor;
+
+    window.formatTime =
+        formatTime;
+
+    window.SimpleEventEmitter =
+        SimpleEventEmitter;
+
+    window.$ =
+        $;
+
+    window.getElement =
+        getElement;
+
+    window.toggleClass =
+        toggleClass;
+
+    window.nextFrame =
+        nextFrame;
+
+    window.safeJsonParse =
+        safeJsonParse;
+
+}

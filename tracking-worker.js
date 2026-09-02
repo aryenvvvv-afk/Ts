@@ -1,859 +1,690 @@
 "use strict";
 
 /*
+ * =========================================================
  * tracking-worker.js
+ * =========================================================
  *
- * यह worker हर locked tracker को उसके अपने
- * target के आसपास track करता है।
+ * Frame processing helper.
  *
- * महत्वपूर्ण:
- * एक tracker दूसरे समान object पर switch नहीं करेगा।
+ * यह file tracking engine को detections normalize करने,
+ * target identity maintain करने और frame data तैयार करने
+ * में मदद करती है.
+ *
+ * IMPORTANT:
+ * Locked tracker के लिए targetId कभी बदलता नहीं है.
+ * =========================================================
  */
 
-self.onmessage = function (event) {
+class TrackingWorker {
 
-    const message = event.data;
+    constructor(options = {}) {
 
-    if (!message) return;
+        this.targetMemory = new Map();
 
+        this.frameNumber = 0;
 
-    if (message.type === "reset") {
-        return;
+        this.maxHistory =
+            Number.isFinite(options.maxHistory)
+                ? options.maxHistory
+                : 30;
+
     }
 
 
-    if (message.type !== "track") {
-        return;
-    }
+    /* =====================================================
+       PROCESS FRAME
+    ===================================================== */
+
+    processFrame(
+        detections,
+        videoWidth,
+        videoHeight
+    ) {
+
+        this.frameNumber++;
 
 
-    try {
+        if (
+            !Array.isArray(detections)
+        ) {
 
-        const frame =
-            new Uint8ClampedArray(
-                message.frame
-            );
-
-        const width =
-            Number(message.width);
-
-        const height =
-            Number(message.height);
-
-        const jobs =
-            Array.isArray(message.jobs)
-                ? message.jobs
-                : [];
-
-
-        const results = [];
-
-
-        for (const job of jobs) {
-
-            results.push(
-                trackTarget(
-                    frame,
-                    width,
-                    height,
-                    job
-                )
-            );
+            return [];
 
         }
 
 
-        self.postMessage({
+        const normalized = [];
 
-            type: "tracking-result",
-
-            results,
-
-            frameNumber:
-                message.frameNumber
-
-        });
-
-    }
-
-    catch (error) {
-
-        self.postMessage({
-
-            type: "error",
-
-            message:
-                error?.message ||
-                String(error)
-
-        });
-
-    }
-
-};
-
-
-/* =====================================================
-   TRACK SINGLE TARGET
-===================================================== */
-
-function trackTarget(
-    frame,
-    frameWidth,
-    frameHeight,
-    job
-) {
-
-    const id =
-        String(job.id);
-
-
-    const centerX =
-        Number(job.x) || 0;
-
-    const centerY =
-        Number(job.y) || 0;
-
-
-    const template =
-        job.template
-            ? new Uint8ClampedArray(
-                job.template
-            )
-            : null;
-
-
-    const templateWidth =
-        Number(job.width) || 0;
-
-    const templateHeight =
-        Number(job.height) || 0;
-
-
-    if (
-        !template ||
-        templateWidth < 4 ||
-        templateHeight < 4
-    ) {
-
-        return {
-
-            id,
-
-            found: false,
-
-            x: centerX,
-
-            y: centerY,
-
-            width:
-                templateWidth,
-
-            height:
-                templateHeight,
-
-            confidence: 0
-
-        };
-
-    }
-
-
-    const sensitivity =
-        Math.max(
-            0,
-            Math.min(
-                1,
-                Number(job.sensitivity) || 0.65
-            )
-        );
-
-
-    /*
-     * Search सिर्फ इसी tracker के
-     * पिछले target के आसपास होगा।
-     */
-    const searchRadius =
-        Math.max(
-            25,
-            Math.min(
-                180,
-                Number(job.searchRadius) || 90
-            )
-        );
-
-
-    const left =
-        Math.round(
-            centerX -
-            templateWidth / 2
-        );
-
-
-    const top =
-        Math.round(
-            centerY -
-            templateHeight / 2
-        );
-
-
-    const minX =
-        Math.max(
-            0,
-            left -
-            Math.round(searchRadius)
-        );
-
-
-    const maxX =
-        Math.min(
-            frameWidth -
-            templateWidth,
-            left +
-            Math.round(searchRadius)
-        );
-
-
-    const minY =
-        Math.max(
-            0,
-            top -
-            Math.round(searchRadius)
-        );
-
-
-    const maxY =
-        Math.min(
-            frameHeight -
-            templateHeight,
-            top +
-            Math.round(searchRadius)
-        );
-
-
-    if (
-        maxX < minX ||
-        maxY < minY
-    ) {
-
-        return {
-
-            id,
-
-            found: false,
-
-            x: centerX,
-
-            y: centerY,
-
-            width:
-                templateWidth,
-
-            height:
-                templateHeight,
-
-            confidence: 0
-
-        };
-
-    }
-
-
-    const step =
-        getSearchStep(
-            searchRadius
-        );
-
-
-    const sampleStep =
-        getSampleStep(
-            templateWidth,
-            templateHeight
-        );
-
-
-    let bestScore =
-        Infinity;
-
-    let secondScore =
-        Infinity;
-
-    let bestX =
-        left;
-
-    let bestY =
-        top;
-
-
-    /*
-     * पिछले location को पहले test करो।
-     */
-    const previousScore =
-        compareTemplate(
-            frame,
-            frameWidth,
-            frameHeight,
-            template,
-            templateWidth,
-            templateHeight,
-            left,
-            top,
-            sampleStep
-        );
-
-
-    if (
-        Number.isFinite(
-            previousScore
-        )
-    ) {
-
-        bestScore =
-            previousScore;
-
-    }
-
-
-    /*
-     * Local search.
-     *
-     * पूरे video में search नहीं होता।
-     */
-    for (
-        let y = minY;
-
-        y <= maxY;
-
-        y += step
-    ) {
 
         for (
-            let x = minX;
-
-            x <= maxX;
-
-            x += step
+            const detection
+            of detections
         ) {
 
-            if (
-                x === left &&
-                y === top
-            ) {
+            const target =
+                this.normalizeDetection(
+                    detection,
+                    videoWidth,
+                    videoHeight
+                );
 
+
+            if (!target) {
                 continue;
             }
 
 
-            const score =
-                compareTemplate(
-                    frame,
-                    frameWidth,
-                    frameHeight,
-                    template,
-                    templateWidth,
-                    templateHeight,
-                    x,
-                    y,
-                    sampleStep
-                );
+            normalized.push(
+                target
+            );
 
 
-            if (
-                score <
-                bestScore
-            ) {
-
-                secondScore =
-                    bestScore;
-
-                bestScore =
-                    score;
-
-                bestX =
-                    x;
-
-                bestY =
-                    y;
-
-            }
-
-            else if (
-                score <
-                secondScore
-            ) {
-
-                secondScore =
-                    score;
-
-            }
+            this.rememberTarget(
+                target
+            );
 
         }
+
+
+        return normalized;
 
     }
 
 
-    const confidence =
-        scoreToConfidence(
-            bestScore
-        );
+    /* =====================================================
+       NORMALIZE DETECTION
+    ===================================================== */
 
-
-    /*
-     * Sensitivity बढ़ने पर थोड़ा अधिक
-     * tolerant होगा।
-     */
-    const minimumConfidence =
-        0.54 -
-        sensitivity *
-        0.16;
-
-
-    /*
-     * दो बहुत समान candidates मिलने पर
-     * tracker jump नहीं करेगा।
-     */
-    let ambiguous =
-        false;
-
-
-    if (
-        Number.isFinite(
-            secondScore
-        )
+    normalizeDetection(
+        detection,
+        videoWidth,
+        videoHeight
     ) {
 
-        const difference =
-            secondScore -
-            bestScore;
+        if (!detection) {
+            return null;
+        }
 
 
-        const relativeDifference =
-            difference /
-            Math.max(
-                1,
-                secondScore
+        /*
+         * Detector की stable ID.
+         *
+         * अलग-अलग detector implementations में
+         * अलग नाम हो सकता है.
+         */
+        const rawId =
+            detection.id ??
+            detection.trackingId ??
+            detection.trackId ??
+            detection.objectId ??
+            null;
+
+
+        /*
+         * बिना stable ID के detection को locked
+         * tracking के लिए valid नहीं माना जाएगा.
+         */
+        if (
+            rawId === null ||
+            rawId === undefined
+        ) {
+
+            return null;
+
+        }
+
+
+        const id =
+            String(rawId);
+
+
+        const rect =
+            this.extractRect(
+                detection
+            );
+
+
+        if (!rect) {
+            return null;
+        }
+
+
+        let center =
+            this.extractCenter(
+                detection,
+                rect
+            );
+
+
+        if (!center) {
+
+            center =
+                {
+
+                    x:
+                        (
+                            rect.left +
+                            rect.right
+                        ) / 2,
+
+                    y:
+                        (
+                            rect.top +
+                            rect.bottom
+                        ) / 2
+
+                };
+
+        }
+
+
+        /*
+         * Detector pixel coordinates दे रहा है
+         * तो उन्हें normalized 0..1 में बदलें.
+         */
+        if (
+            videoWidth > 0 &&
+            videoHeight > 0 &&
+            (
+                Math.abs(center.x) > 1 ||
+                Math.abs(center.y) > 1
+            )
+        ) {
+
+            center.x /=
+                videoWidth;
+
+            center.y /=
+                videoHeight;
+
+        }
+
+
+        center.x =
+            clamp(
+                center.x,
+                0,
+                1
+            );
+
+
+        center.y =
+            clamp(
+                center.y,
+                0,
+                1
+            );
+
+
+        const confidence =
+            clamp(
+                Number(
+                    detection.confidence ??
+                    detection.score ??
+                    1
+                ),
+                0,
+                1
+            );
+
+
+        return {
+
+            id,
+
+            trackingId:
+                id,
+
+            center,
+
+            rect,
+
+            confidence,
+
+            label:
+                detection.label ??
+                detection.className ??
+                detection.category ??
+                null,
+
+            frame:
+                this.frameNumber
+
+        };
+
+    }
+
+
+    /* =====================================================
+       EXTRACT RECT
+    ===================================================== */
+
+    extractRect(
+        detection
+    ) {
+
+        const source =
+            detection.rect ??
+            detection.boundingBox ??
+            detection.box ??
+            detection.bounds ??
+            detection;
+
+
+        if (!source) {
+            return null;
+        }
+
+
+        let left =
+            Number(
+                source.left ??
+                source.x ??
+                0
+            );
+
+
+        let top =
+            Number(
+                source.top ??
+                source.y ??
+                0
+            );
+
+
+        let width =
+            Number(
+                source.width ??
+                0
+            );
+
+
+        let height =
+            Number(
+                source.height ??
+                0
+            );
+
+
+        let right =
+            Number(
+                source.right
+            );
+
+
+        let bottom =
+            Number(
+                source.bottom
             );
 
 
         if (
-            relativeDifference <
-            0.025
+            !Number.isFinite(right)
         ) {
 
-            ambiguous =
-                true;
+            right =
+                left +
+                width;
 
         }
 
-    }
+
+        if (
+            !Number.isFinite(bottom)
+        ) {
+
+            bottom =
+                top +
+                height;
+
+        }
 
 
-    /*
-     * Confidence खराब है या candidates
-     * ambiguous हैं तो target LOST।
-     *
-     * दूसरे object का location वापस नहीं करेंगे।
-     */
-    if (
-        confidence <
-            minimumConfidence ||
-        ambiguous
-    ) {
+        if (
+            !Number.isFinite(left) ||
+            !Number.isFinite(top) ||
+            !Number.isFinite(right) ||
+            !Number.isFinite(bottom)
+        ) {
 
+            return null;
+
+        }
+
+
+        /*
+         * अगर detector pixel coordinates देता है,
+         * तो rect normalized किया जाएगा.
+         *
+         * यह check center normalization के साथ
+         * consistent है.
+         */
         return {
 
-            id,
+            left,
 
-            found: false,
+            top,
 
-            x: centerX,
+            right,
 
-            y: centerY,
+            bottom,
 
             width:
-                templateWidth,
+                Math.max(
+                    0,
+                    right - left
+                ),
 
             height:
-                templateHeight,
-
-            confidence
+                Math.max(
+                    0,
+                    bottom - top
+                )
 
         };
 
     }
 
 
-    const targetX =
-        bestX +
-        templateWidth / 2;
+    /* =====================================================
+       EXTRACT CENTER
+    ===================================================== */
 
-
-    const targetY =
-        bestY +
-        templateHeight / 2;
-
-
-    /*
-     * अचानक बहुत बड़ी छलांग रोकना।
-     */
-    const dx =
-        targetX -
-        centerX;
-
-
-    const dy =
-        targetY -
-        centerY;
-
-
-    const distance =
-        Math.sqrt(
-            dx * dx +
-            dy * dy
-        );
-
-
-    const maximumJump =
-        Math.max(
-            25,
-            searchRadius *
-            0.90
-        );
-
-
-    if (
-        distance >
-        maximumJump
+    extractCenter(
+        detection,
+        rect
     ) {
 
-        return {
-
-            id,
-
-            found: false,
-
-            x: centerX,
-
-            y: centerY,
-
-            width:
-                templateWidth,
-
-            height:
-                templateHeight,
-
-            confidence
-
-        };
-
-    }
-
-
-    return {
-
-        id,
-
-        found: true,
-
-        x:
-            targetX,
-
-        y:
-            targetY,
-
-        width:
-            templateWidth,
-
-        height:
-            templateHeight,
-
-        confidence
-
-    };
-
-}
-
-
-/* =====================================================
-   TEMPLATE MATCH
-===================================================== */
-
-function compareTemplate(
-    frame,
-    frameWidth,
-    frameHeight,
-    template,
-    templateWidth,
-    templateHeight,
-    left,
-    top,
-    sampleStep
-) {
-
-    if (
-        left < 0 ||
-        top < 0 ||
-        left + templateWidth >
-            frameWidth ||
-        top + templateHeight >
-            frameHeight
-    ) {
-
-        return Infinity;
-
-    }
-
-
-    let total =
-        0;
-
-    let samples =
-        0;
-
-
-    for (
-        let y = 0;
-
-        y < templateHeight;
-
-        y += sampleStep
-    ) {
-
-        const frameRow =
-            (
-                top + y
-            ) *
-            frameWidth;
-
-
-        const templateRow =
-            y *
-            templateWidth;
-
-
-        for (
-            let x = 0;
-
-            x < templateWidth;
-
-            x += sampleStep
-        ) {
-
-            const templateIndex =
-                (
-                    templateRow +
-                    x
-                ) *
-                4;
-
-
-            const frameIndex =
-                (
-                    frameRow +
-                    left +
-                    x
-                ) *
-                4;
-
-
-            const tr =
-                template[
-                    templateIndex
-                ];
-
-            const tg =
-                template[
-                    templateIndex + 1
-                ];
-
-            const tb =
-                template[
-                    templateIndex + 2
-                ];
-
-
-            const fr =
-                frame[
-                    frameIndex
-                ];
-
-            const fg =
-                frame[
-                    frameIndex + 1
-                ];
-
-            const fb =
-                frame[
-                    frameIndex + 2
-                ];
-
-
-            /*
-             * RGB difference।
-             */
-            total +=
-
-                Math.abs(
-                    tr - fr
-                ) * 0.30 +
-
-                Math.abs(
-                    tg - fg
-                ) * 0.40 +
-
-                Math.abs(
-                    tb - fb
-                ) * 0.30;
-
-
-            samples++;
-
-        }
-
-    }
-
-
-    if (
-        samples === 0
-    ) {
-
-        return Infinity;
-
-    }
-
-
-    return (
-        total /
-        samples
-    );
-
-}
-
-
-/* =====================================================
-   CONFIDENCE
-===================================================== */
-
-function scoreToConfidence(
-    score
-) {
-
-    if (
-        !Number.isFinite(
-            score
-        )
-    ) {
-
-        return 0;
-
-    }
-
-
-    const normalized =
-        Math.max(
-            0,
-            Math.min(
-                1,
-                score / 255
+        const center =
+            detection.center ??
+            detection.position ??
+            null;
+
+
+        if (
+            center &&
+            Number.isFinite(
+                Number(center.x)
+            ) &&
+            Number.isFinite(
+                Number(center.y)
             )
+        ) {
+
+            return {
+
+                x:
+                    Number(
+                        center.x
+                    ),
+
+                y:
+                    Number(
+                        center.y
+                    )
+
+            };
+
+        }
+
+
+        if (
+            rect
+        ) {
+
+            return {
+
+                x:
+                    (
+                        rect.left +
+                        rect.right
+                    ) / 2,
+
+                y:
+                    (
+                        rect.top +
+                        rect.bottom
+                    ) / 2
+
+            };
+
+        }
+
+
+        return null;
+
+    }
+
+
+    /* =====================================================
+       REMEMBER TARGET
+    ===================================================== */
+
+    rememberTarget(
+        target
+    ) {
+
+        if (!target) {
+            return;
+        }
+
+
+        const id =
+            String(
+                target.id
+            );
+
+
+        let history =
+            this.targetMemory.get(
+                id
+            );
+
+
+        if (!history) {
+
+            history = [];
+
+            this.targetMemory.set(
+                id,
+                history
+            );
+
+        }
+
+
+        history.push(
+            {
+
+                frame:
+                    target.frame,
+
+                center:
+                    {
+                        x:
+                            target.center.x,
+
+                        y:
+                            target.center.y
+                    },
+
+                confidence:
+                    target.confidence
+
+            }
         );
 
 
-    return (
-        1 -
-        normalized
+        if (
+            history.length >
+            this.maxHistory
+        ) {
+
+            history.splice(
+                0,
+                history.length -
+                this.maxHistory
+            );
+
+        }
+
+    }
+
+
+    /* =====================================================
+       GET TARGET HISTORY
+    ===================================================== */
+
+    getTargetHistory(
+        id
+    ) {
+
+        const history =
+            this.targetMemory.get(
+                String(id)
+            );
+
+
+        if (!history) {
+            return [];
+        }
+
+
+        return history.map(
+            item =>
+                ({
+                    ...item,
+                    center:
+                        {
+                            ...item.center
+                        }
+                })
+        );
+
+    }
+
+
+    /* =====================================================
+       GET LAST TARGET
+    ===================================================== */
+
+    getLastTarget(
+        id
+    ) {
+
+        const history =
+            this.getTargetHistory(
+                id
+            );
+
+
+        if (
+            history.length === 0
+        ) {
+
+            return null;
+
+        }
+
+
+        return history[
+            history.length - 1
+        ];
+
+    }
+
+
+    /* =====================================================
+       HAS TARGET
+    ===================================================== */
+
+    hasTarget(
+        id
+    ) {
+
+        return this.targetMemory.has(
+            String(id)
+        );
+
+    }
+
+
+    /* =====================================================
+       CLEAR TARGET
+    ===================================================== */
+
+    clearTarget(
+        id
+    ) {
+
+        this.targetMemory.delete(
+            String(id)
+        );
+
+    }
+
+
+    /* =====================================================
+       RESET
+    ===================================================== */
+
+    reset() {
+
+        this.targetMemory.clear();
+
+        this.frameNumber =
+            0;
+
+    }
+
+}
+
+
+/* =========================================================
+   HELPER FUNCTIONS
+========================================================= */
+
+function clamp(
+    value,
+    min,
+    max
+) {
+
+    const number =
+        Number(value);
+
+
+    if (
+        !Number.isFinite(number)
+    ) {
+
+        return min;
+
+    }
+
+
+    return Math.min(
+        max,
+        Math.max(
+            min,
+            number
+        )
     );
 
 }
 
 
-/* =====================================================
-   SEARCH STEP
-===================================================== */
+/* =========================================================
+   EXPORT
+========================================================= */
 
-function getSearchStep(
-    radius
+if (
+    typeof window !==
+    "undefined"
 ) {
 
-    if (
-        radius <= 50
-    ) {
-
-        return 3;
-
-    }
-
-
-    if (
-        radius <= 100
-    ) {
-
-        return 4;
-
-    }
-
-
-    return 5;
+    window.TrackingWorker =
+        TrackingWorker;
 
 }
-
-
-/* =====================================================
-   SAMPLE STEP
-===================================================== */
-
-function getSampleStep(
-    width,
-    height
-) {
-
-    const area =
-        width *
-        height;
-
-
-    if (
-        area <=
-        40 * 40
-    ) {
-
-        return 2;
-
-    }
-
-
-    if (
-        area <=
-        100 * 100
-    ) {
-
-        return 3;
-
-    }
-
-
-    if (
-        area <=
-        180 * 180
-    ) {
-
-        return 4;
-
-    }
-
-
-    return 5;
-
-}
-
-
-/* =====================================================
-   WORKER READY
-===================================================== */
-
-self.postMessage({
-
-    type:
-        "ready"
-
-});

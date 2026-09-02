@@ -1,8 +1,28 @@
-/* =========================================
-   VIDEO OBJECT TRACKER
+/* =========================================================
    styles.css
-   FILE 2 / 10
-========================================= */
+   Object Tracker Web App
+   ========================================================= */
+
+:root {
+    --bg: #0b0b0f;
+    --panel: #15151c;
+    --panel-2: #1d1d26;
+    --border: #30303b;
+    --text: #f5f5f7;
+    --muted: #9a9aa6;
+    --primary: #4f8cff;
+    --primary-hover: #3d78e8;
+    --danger: #e74c3c;
+    --success: #28c76f;
+    --warning: #f5a623;
+
+    --radius: 10px;
+    --control-height: 42px;
+}
+
+/* =========================================================
+   RESET
+   ========================================================= */
 
 * {
     box-sizing: border-box;
@@ -14,426 +34,534 @@ html,
 body {
     width: 100%;
     min-height: 100%;
-    background: #101010;
-    color: #ffffff;
-    font-family:
-        Arial,
-        Helvetica,
-        sans-serif;
 }
 
 body {
+    background: var(--bg);
+    color: var(--text);
+    font-family:
+        Inter,
+        -apple-system,
+        BlinkMacSystemFont,
+        "Segoe UI",
+        Roboto,
+        Arial,
+        sans-serif;
+
     overflow-x: hidden;
+    -webkit-font-smoothing: antialiased;
 }
 
-/* =========================================
+button,
+input,
+select {
+    font: inherit;
+}
+
+/* =========================================================
    APP
-========================================= */
+   ========================================================= */
 
 #app {
     width: 100%;
     min-height: 100vh;
+
     display: flex;
     flex-direction: column;
 }
 
-/* =========================================
-   HEADER
-========================================= */
+/* =========================================================
+   TOP BAR
+   ========================================================= */
 
-.app-header {
+.topbar {
     width: 100%;
     min-height: 64px;
-    padding: 12px 16px;
 
     display: flex;
     align-items: center;
     justify-content: space-between;
-    gap: 12px;
 
-    background: #181818;
-    border-bottom: 1px solid #303030;
+    gap: 16px;
+
+    padding:
+        10px
+        max(16px, env(safe-area-inset-right))
+        10px
+        max(16px, env(safe-area-inset-left));
+
+    background: var(--panel);
+    border-bottom: 1px solid var(--border);
 
     position: relative;
-    z-index: 20;
+    z-index: 2000;
 }
 
-.app-title {
+.brand {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+
     min-width: 0;
 }
 
-.app-title h1 {
-    font-size: 20px;
-    line-height: 1.2;
+.brand-title {
+    font-size: 18px;
     font-weight: 700;
+
     white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
 }
 
-#trackingStatus {
-    display: inline-block;
-    margin-top: 4px;
+.status {
+    display: inline-flex;
+    align-items: center;
+
+    min-height: 26px;
+
+    padding: 4px 9px;
+
+    border-radius: 999px;
 
     font-size: 12px;
-    color: #9f9f9f;
+    font-weight: 600;
+
+    white-space: nowrap;
 }
 
-/* =========================================
-   HEADER BUTTON
-========================================= */
+.status-idle {
+    background: rgba(255, 255, 255, 0.08);
+    color: var(--muted);
+}
 
-button {
-    border: 0;
-    outline: none;
+.status-ready {
+    background: rgba(40, 199, 111, 0.12);
+    color: var(--success);
+}
+
+.status-tracking {
+    background: rgba(79, 140, 255, 0.15);
+    color: var(--primary);
+}
+
+.status-locked {
+    background: rgba(245, 166, 35, 0.14);
+    color: var(--warning);
+}
+
+.status-error {
+    background: rgba(231, 76, 60, 0.14);
+    color: var(--danger);
+}
+
+.top-actions {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+/* =========================================================
+   BUTTONS
+   ========================================================= */
+
+.button,
+.control-button {
+    min-height: var(--control-height);
+
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+
+    background: var(--panel-2);
+    color: var(--text);
+
+    padding: 0 14px;
+
     cursor: pointer;
-
-    color: #ffffff;
-    background: #292929;
-
-    border-radius: 8px;
-
-    min-height: 40px;
-    padding: 8px 14px;
-
-    font-size: 14px;
-    font-weight: 600;
 
     transition:
         background 0.15s ease,
+        border-color 0.15s ease,
         transform 0.1s ease,
         opacity 0.15s ease;
+
+    -webkit-tap-highlight-color: transparent;
+
+    touch-action: manipulation;
 }
 
-button:hover {
-    background: #383838;
+.button:hover,
+.control-button:hover {
+    background: #272732;
+    border-color: #454553;
 }
 
-button:active {
+.button:active,
+.control-button:active {
     transform: scale(0.97);
 }
 
-button:disabled {
+.button:disabled,
+.control-button:disabled {
     opacity: 0.45;
     cursor: not-allowed;
+    transform: none;
 }
 
-#uploadButton {
-    background: #1769ff;
+.button.primary,
+.control-button.primary {
+    background: var(--primary);
+    border-color: var(--primary);
+    color: white;
 }
 
-#uploadButton:hover {
-    background: #0f5be0;
+.button.primary:hover,
+.control-button.primary:hover {
+    background: var(--primary-hover);
+    border-color: var(--primary-hover);
 }
 
-/* =========================================
+.control-button.danger {
+    color: #ff7468;
+}
+
+.control-button.danger:hover {
+    background: rgba(231, 76, 60, 0.12);
+    border-color: rgba(231, 76, 60, 0.4);
+}
+
+/* =========================================================
    WORKSPACE
-========================================= */
+   ========================================================= */
 
 .workspace {
     width: 100%;
+
     flex: 1;
-
-    display: flex;
-    flex-direction: column;
-
-    min-height: 0;
-}
-
-/* =========================================
-   VIDEO STAGE
-========================================= */
-
-.video-stage {
-    position: relative;
-
-    width: 100%;
-
-    /*
-     * The video will never be allowed to
-     * overflow the screen.
-     */
-    max-width: 100%;
-
-    /*
-     * Keep a sensible desktop height.
-     */
-    height: min(
-        calc(100vh - 250px),
-        720px
-    );
-
-    min-height: 260px;
-
-    margin: 0 auto;
 
     display: flex;
     align-items: center;
     justify-content: center;
 
-    background: #050505;
+    padding: 16px;
+
+    min-height: 300px;
+}
+
+/* =========================================================
+   VIDEO STAGE
+   ========================================================= */
+
+.video-stage {
+    position: relative;
+
+    width: min(
+        100%,
+        1200px
+    );
+
+    /*
+     * Height is limited by viewport so a large uploaded
+     * video never pushes the controls completely off-screen.
+     */
+    height: min(
+        68vh,
+        720px
+    );
+
+    min-height: 220px;
+
+    display: flex;
+    align-items: center;
+    justify-content: center;
 
     overflow: hidden;
 
-    /*
-     * This is important for correct
-     * video/overlay coordinate handling.
-     */
-    isolation: isolate;
+    background: #000;
+
+    border:
+        1px solid
+        var(--border);
+
+    border-radius: 12px;
+
+    box-shadow:
+        0 12px 40px
+        rgba(0, 0, 0, 0.35);
 }
 
-/* =========================================
+/* =========================================================
    VIDEO
-========================================= */
+   ========================================================= */
 
-#video {
-    /*
-     * Do NOT use width: 100% + height: 100%
-     * because that can distort the video.
-     */
+.video {
+    position: absolute;
+
+    inset: 0;
+
+    width: 100%;
+    height: 100%;
 
     display: block;
 
-    width: 100%;
-    height: 100%;
-
     object-fit: contain;
 
-    background: #050505;
+    background: #000;
 
     /*
-     * Prevent accidental native controls.
-     * Controls are handled by our UI.
+     * Prevent browser selection / dragging.
      */
-    outline: none;
+    user-select: none;
+    -webkit-user-select: none;
 
-    /*
-     * The video itself is below the overlay.
-     */
-    position: relative;
-    z-index: 1;
+    -webkit-touch-callout: none;
 }
 
-/* =========================================
-   CANVAS OVERLAY
-========================================= */
+/*
+ * When there is no video loaded, keep the video invisible.
+ * app.js can remove this class after successful loading.
+ */
 
-#overlayCanvas {
-    position: absolute;
-
-    /*
-     * JS will update these dimensions.
-     */
-    left: 0;
-    top: 0;
-
-    width: 100%;
-    height: 100%;
-
-    /*
-     * Do not block tracker mouse/touch events.
-     */
-    pointer-events: none;
-
-    z-index: 5;
-
-    /*
-     * Prevent browser gesture handling
-     * while interacting with overlay.
-     */
-    touch-action: none;
+.video:not([src]),
+.video[src=""] {
+    visibility: hidden;
 }
 
-/* =========================================
+/* =========================================================
    TRACKER LAYER
-========================================= */
+   ========================================================= */
 
 .tracker-layer {
     position: absolute;
 
-    left: 0;
-    top: 0;
+    inset: 0;
 
     width: 100%;
     height: 100%;
-
-    z-index: 10;
 
     pointer-events: none;
 
     overflow: hidden;
 
-    touch-action: none;
+    z-index: 1000;
 }
 
 /*
- * Individual tracker elements are created
- * by tracker.js.
+ * Individual tracker elements enable pointer events
+ * themselves when edit mode is active.
  */
 
 .tracker {
     position: absolute;
 
+    box-sizing: border-box;
+
+    min-width: 25px;
+    min-height: 25px;
+
+    border: 3px solid #ff0000;
+
+    background: transparent;
+
     pointer-events: auto;
+
+    cursor: move;
+
+    touch-action: none;
 
     user-select: none;
     -webkit-user-select: none;
 
-    touch-action: none;
-
     transform-origin: center center;
 
-    cursor: move;
+    z-index: 1000;
+
+    transition:
+        border-color 0.12s ease,
+        box-shadow 0.12s ease,
+        opacity 0.12s ease;
+
+    /*
+     * Important:
+     * Do NOT add transform animations here.
+     * Tracking needs exact pixel positioning.
+     */
 }
 
-/* =========================================
+/* =========================================================
    TRACKER SHAPES
-========================================= */
-
-.tracker.square {
-    border: 3px solid currentColor;
-    background: transparent;
-}
+   ========================================================= */
 
 .tracker.circle {
-    border: 3px solid currentColor;
-    background: transparent;
     border-radius: 50%;
 }
 
-.tracker.triangle {
-    width: 0 !important;
-    height: 0 !important;
-
-    background: transparent;
-
-    border-left: 40px solid transparent;
-    border-right: 40px solid transparent;
-    border-bottom: 70px solid currentColor;
+.tracker.square {
+    border-radius: 0;
 }
 
-/*
- * Selected tracker
- */
+.tracker.triangle {
+    border: 0;
+    background: transparent;
+}
+
+/* =========================================================
+   TRACKER SELECTED
+   ========================================================= */
 
 .tracker.selected {
-    outline: 2px dashed rgba(255, 255, 255, 0.9);
-    outline-offset: 5px;
+    box-shadow:
+        0 0 0 2px rgba(255, 255, 255, 0.85),
+        0 0 18px rgba(255, 255, 255, 0.25);
+
+    z-index: 1100;
 }
 
-/*
- * Locked tracker
- */
+/* =========================================================
+   TRACKER LOCKED
+   ========================================================= */
 
 .tracker.locked {
     cursor: default;
 
-    filter:
-        drop-shadow(
-            0 0 5px
-            rgba(255, 255, 255, 0.6)
-        );
+    pointer-events: none;
+
+    box-shadow:
+        0 0 0 2px rgba(255, 255, 255, 0.35),
+        0 0 14px rgba(255, 255, 255, 0.18);
 }
 
 /*
- * Locked tracker indicator
+ * Locked + tracking state.
  */
 
-.tracker.locked::after {
-    content: "🔒";
+.tracker.locked.tracking {
+    box-shadow:
+        0 0 0 2px rgba(40, 199, 111, 0.85),
+        0 0 18px rgba(40, 199, 111, 0.28);
+}
 
+/* =========================================================
+   RESIZE HANDLE
+   ========================================================= */
+
+.tracker-resize-handle {
     position: absolute;
 
-    top: -24px;
-    right: -4px;
+    right: -8px;
+    bottom: -8px;
 
-    font-size: 14px;
+    width: 16px;
+    height: 16px;
+
+    border:
+        2px solid
+        white;
+
+    border-radius: 50%;
+
+    background: #ff0000;
+
+    cursor: nwse-resize;
+
+    pointer-events: auto;
+
+    touch-action: none;
+
+    z-index: 1200;
+}
+
+.tracker.locked
+.tracker-resize-handle {
+    display: none;
+}
+
+/* =========================================================
+   EMPTY STATE
+   ========================================================= */
+
+.empty-state {
+    position: absolute;
+
+    inset: 0;
+
+    z-index: 20;
+
+    display: flex;
+
+    flex-direction: column;
+
+    align-items: center;
+    justify-content: center;
+
+    gap: 8px;
+
+    padding: 20px;
+
+    text-align: center;
+
+    background:
+        radial-gradient(
+            circle at center,
+            #181820 0%,
+            #09090d 70%
+        );
 
     pointer-events: none;
 }
 
-/* =========================================
-   TRACKER HANDLE
-========================================= */
-
-.tracker-handle {
-    position: absolute;
-
-    width: 14px;
-    height: 14px;
-
-    right: -7px;
-    bottom: -7px;
-
-    background: #ffffff;
-
-    border: 2px solid #111111;
-
-    border-radius: 50%;
-
-    cursor:
-        nwse-resize;
-
-    pointer-events: auto;
-}
-
-/*
- * Triangle tracker resize handle
- */
-
-.tracker.triangle .tracker-handle {
-    right: -47px;
-    bottom: -17px;
-}
-
-/* =========================================
-   TRACKER DELETE BUTTON
-========================================= */
-
-.tracker-delete {
-    position: absolute;
-
-    top: -25px;
-    left: -25px;
-
-    width: 22px;
-    height: 22px;
-
-    min-height: 22px;
-
-    padding: 0;
+.empty-icon {
+    width: 54px;
+    height: 54px;
 
     display: flex;
     align-items: center;
     justify-content: center;
 
+    border:
+        1px solid
+        var(--border);
+
     border-radius: 50%;
 
-    background: #d92828;
+    font-size: 30px;
 
-    color: #ffffff;
-
-    font-size: 12px;
-
-    pointer-events: auto;
+    color: var(--muted);
 }
 
-.tracker-delete:hover {
-    background: #ff3333;
+.empty-title {
+    font-size: 18px;
+    font-weight: 700;
 }
 
-/* =========================================
-   PLACEHOLDER
-========================================= */
+.empty-text {
+    color: var(--muted);
+    font-size: 14px;
+}
 
-.video-placeholder {
+/*
+ * Hide empty state after video load.
+ */
+
+.empty-state.hidden {
+    display: none;
+}
+
+/* =========================================================
+   LOADING
+   ========================================================= */
+
+.video-loading {
     position: absolute;
 
     inset: 0;
 
-    z-index: 3;
+    z-index: 1500;
 
     display: flex;
+
     flex-direction: column;
 
     align-items: center;
@@ -441,383 +569,469 @@ button:disabled {
 
     gap: 12px;
 
-    color: #8d8d8d;
+    background:
+        rgba(0, 0, 0, 0.55);
 
-    font-size: 16px;
+    backdrop-filter:
+        blur(3px);
 
-    pointer-events: none;
+    color: white;
+
+    font-size: 14px;
 }
 
-.placeholder-icon {
-    font-size: 48px;
-    opacity: 0.7;
+.loading-spinner {
+    width: 32px;
+    height: 32px;
+
+    border:
+        3px solid
+        rgba(255, 255, 255, 0.2);
+
+    border-top-color:
+        white;
+
+    border-radius: 50%;
+
+    animation:
+        tracker-spin
+        0.8s linear infinite;
 }
 
-/* =========================================
-   CONTROLS PANEL
-========================================= */
+@keyframes tracker-spin {
 
-.controls-panel {
+    from {
+        transform: rotate(0deg);
+    }
+
+    to {
+        transform: rotate(360deg);
+    }
+
+}
+
+/* =========================================================
+   ERROR
+   ========================================================= */
+
+.video-error {
+    position: absolute;
+
+    left: 50%;
+    top: 50%;
+
+    transform:
+        translate(-50%, -50%);
+
+    z-index: 1600;
+
+    width: min(
+        calc(100% - 32px),
+        500px
+    );
+
+    padding: 14px 18px;
+
+    border:
+        1px solid
+        rgba(231, 76, 60, 0.45);
+
+    border-radius: var(--radius);
+
+    background:
+        rgba(60, 10, 10, 0.92);
+
+    color: #ffb0a9;
+
+    text-align: center;
+
+    font-size: 14px;
+}
+
+/* =========================================================
+   UTILITY HIDDEN
+   ========================================================= */
+
+.hidden {
+    display: none !important;
+}
+
+/* =========================================================
+   CONTROL PANEL
+   ========================================================= */
+
+.control-panel {
     width: 100%;
 
-    padding: 12px 16px 18px;
-
-    background: #181818;
-
-    border-top: 1px solid #303030;
-
     display: flex;
-    flex-wrap: wrap;
 
     align-items: center;
 
-    gap: 10px;
+    gap: 12px;
+
+    flex-wrap: wrap;
+
+    padding:
+        12px
+        max(16px, env(safe-area-inset-right))
+        12px
+        max(16px, env(safe-area-inset-left));
+
+    background: var(--panel);
+
+    border-top:
+        1px solid
+        var(--border);
 
     position: relative;
-    z-index: 20;
-}
 
-/* =========================================
-   CONTROL GROUP
-========================================= */
+    z-index: 1800;
+}
 
 .control-group {
     display: flex;
-
-    flex-wrap: wrap;
 
     align-items: center;
 
     gap: 7px;
 }
 
-/* =========================================
-   CONTROL SECTION
-========================================= */
+.playback-controls {
+    padding-right: 4px;
 
-.control-section {
-    display: flex;
-
-    align-items: center;
-
-    gap: 8px;
-
-    min-height: 40px;
-
-    padding: 0 4px;
+    border-right:
+        1px solid
+        var(--border);
 }
 
-.control-section > label {
-    color: #d5d5d5;
+.control-label {
+    color: var(--muted);
 
     font-size: 13px;
 
     white-space: nowrap;
 }
 
-/* =========================================
-   STYLE BUTTONS
-========================================= */
+.value {
+    color: var(--text);
 
-.style-buttons {
-    display: flex;
+    margin-left: 4px;
 
-    flex-wrap: wrap;
-
-    gap: 6px;
+    font-variant-numeric:
+        tabular-nums;
 }
 
-.style-buttons button {
-    min-height: 36px;
-    padding: 6px 10px;
-}
+.select {
+    height: var(--control-height);
 
-/* =========================================
-   ACTIVE BUTTON
-========================================= */
+    min-width: 120px;
 
-button.active {
-    background: #1769ff;
-}
+    padding:
+        0 10px;
 
-button.active:hover {
-    background: #0f5be0;
-}
+    border:
+        1px solid
+        var(--border);
 
-/* =========================================
-   SELECT
-========================================= */
+    border-radius:
+        var(--radius);
 
-select {
-    min-height: 36px;
+    background:
+        var(--panel-2);
 
-    padding: 6px 30px 6px 10px;
-
-    border: 1px solid #3a3a3a;
-
-    border-radius: 7px;
-
-    background: #252525;
-
-    color: #ffffff;
+    color:
+        var(--text);
 
     outline: none;
 
-    font-size: 13px;
+    cursor: pointer;
 }
 
-select:focus {
-    border-color: #1769ff;
+.select:focus {
+    border-color:
+        var(--primary);
 }
 
-/* =========================================
-   COLOR INPUT
-========================================= */
+.color-input {
+    width: 44px;
+    height: 42px;
 
-#colorPicker {
-    width: 42px;
-    height: 36px;
+    padding: 4px;
 
-    padding: 2px;
+    border:
+        1px solid
+        var(--border);
 
-    border: 1px solid #444444;
+    border-radius:
+        var(--radius);
 
-    border-radius: 7px;
-
-    background: #252525;
+    background:
+        var(--panel-2);
 
     cursor: pointer;
 }
 
-/* =========================================
-   RANGE INPUT
-========================================= */
+/* =========================================================
+   RANGE / SENSITIVITY
+   ========================================================= */
 
-input[type="range"] {
-    width: 130px;
+.sensitivity-group {
+    min-width: 220px;
 
-    accent-color: #1769ff;
+    flex-direction: column;
+
+    align-items: stretch;
+
+    gap: 5px;
+}
+
+.sensitivity-group
+.control-label {
+    display: flex;
+
+    justify-content: space-between;
+}
+
+.range {
+    width: 220px;
+
+    accent-color:
+        var(--primary);
 
     cursor: pointer;
 }
 
-/* =========================================
-   RANGE LABEL
-========================================= */
+/* =========================================================
+   TRACKER INFO
+   ========================================================= */
 
-.range-label {
+.tracker-info-panel {
+    width: 100%;
+
     display: flex;
 
     align-items: center;
 
-    gap: 8px;
-}
-
-#sensitivityValue {
-    min-width: 42px;
-
-    color: #ffffff;
-
-    font-size: 13px;
-
-    text-align: right;
-}
-
-/* =========================================
-   TRACKER INFO
-========================================= */
-
-.tracker-info {
-    display: flex;
+    gap: 20px;
 
     flex-wrap: wrap;
 
-    gap: 8px;
+    padding:
+        10px
+        max(16px, env(safe-area-inset-right))
+        10px
+        max(16px, env(safe-area-inset-left));
 
-    margin-left: auto;
+    background:
+        #101016;
+
+    border-top:
+        1px solid
+        var(--border);
+
+    position: relative;
+
+    z-index: 1700;
 }
 
-.info-row {
+.info-item {
     display: flex;
 
     align-items: center;
 
-    gap: 6px;
+    gap: 7px;
 
-    min-height: 32px;
-
-    padding: 5px 9px;
-
-    border-radius: 6px;
-
-    background: #242424;
-
-    font-size: 12px;
+    font-size: 13px;
 }
 
-.info-row span {
-    color: #929292;
+.info-label {
+    color:
+        var(--muted);
 }
 
-.info-row strong {
-    color: #ffffff;
+.info-value {
+    color:
+        var(--text);
+
+    font-weight: 600;
 }
 
-/* =========================================
-   VIDEO TIME
-========================================= */
+/* =========================================================
+   EDITOR HELP
+   ========================================================= */
 
-.video-time {
+.editor-help {
+    width: 100%;
+
     display: flex;
 
     align-items: center;
 
-    gap: 5px;
+    gap: 10px;
 
-    color: #bcbcbc;
+    padding:
+        10px
+        max(16px, env(safe-area-inset-right))
+        10px
+        max(16px, env(safe-area-inset-left));
 
-    font-size: 12px;
+    background:
+        rgba(79, 140, 255, 0.08);
+
+    border-top:
+        1px solid
+        rgba(79, 140, 255, 0.2);
+
+    color:
+        var(--muted);
+
+    font-size: 13px;
+
+    line-height: 1.45;
+}
+
+.editor-help strong {
+    color:
+        var(--primary);
 
     white-space: nowrap;
 }
 
-/* =========================================
-   EDIT MODE
-========================================= */
+/* =========================================================
+   FOCUS
+   ========================================================= */
 
-body.edit-mode .tracker {
-    pointer-events: auto;
+button:focus-visible,
+label.button:focus-visible,
+select:focus-visible,
+input:focus-visible {
+    outline:
+        2px solid
+        var(--primary);
+
+    outline-offset:
+        2px;
 }
 
-body:not(.edit-mode) .tracker {
-    pointer-events: none;
+/* =========================================================
+   TABLET
+   ========================================================= */
+
+@media (max-width: 900px) {
+
+    .video-stage {
+        width: 100%;
+
+        height:
+            min(
+                62vh,
+                600px
+            );
+    }
+
+    .control-panel {
+        gap: 8px;
+    }
+
+    .range {
+        width: 180px;
+    }
+
 }
 
-/* =========================================
-   LOCKED MODE
-========================================= */
-
-body.tracking-mode .tracker.locked {
-    pointer-events: none;
-}
-
-/* =========================================
+/* =========================================================
    MOBILE
-========================================= */
+   ========================================================= */
 
-@media (
-    max-width: 700px
-) {
+@media (max-width: 700px) {
 
-    .app-header {
+    .topbar {
         min-height: 58px;
 
         padding:
-            10px 12px;
+            8px
+            max(10px, env(safe-area-inset-right))
+            8px
+            max(10px, env(safe-area-inset-left));
     }
 
-    .app-title h1 {
+    .brand-title {
         font-size: 16px;
     }
 
-    #trackingStatus {
-        font-size: 11px;
+    .status {
+        display: none;
     }
 
-    #uploadButton {
-        min-height: 36px;
+    .top-actions {
+        gap: 6px;
+    }
+
+    .button {
+        min-height: 38px;
 
         padding:
-            7px 10px;
+            0 10px;
 
-        font-size: 12px;
+        font-size: 13px;
+    }
+
+    .workspace {
+        padding: 8px;
+
+        min-height: 260px;
+
+        align-items: center;
     }
 
     .video-stage {
-        /*
-         * More room for video on phones.
-         */
+        width: 100%;
+
         height:
-            calc(
-                100vh - 245px
+            min(
+                55vh,
+                500px
             );
 
         min-height: 220px;
+
+        border-radius: 8px;
     }
 
-    .controls-panel {
-        padding:
-            10px;
+    .control-panel {
+        padding: 10px;
+
+        display: grid;
+
+        grid-template-columns:
+            repeat(
+                2,
+                minmax(
+                    0,
+                    1fr
+                )
+            );
 
         gap: 8px;
-
-        /*
-         * Controls can scroll horizontally
-         * instead of breaking the layout.
-         */
-        overflow-x: auto;
-
-        align-items: flex-start;
     }
 
     .control-group {
-        flex-shrink: 0;
+        min-width: 0;
     }
 
-    .control-section {
-        flex-shrink: 0;
+    .playback-controls {
+        border-right: 0;
 
-        flex-direction: column;
+        grid-column:
+            1 / -1;
 
-        align-items: flex-start;
-
-        gap: 5px;
+        justify-content: center;
     }
 
-    .tracker-info {
-        width: 100%;
+    .tracker-controls {
+        grid-column:
+            1 / -1;
 
-        margin-left: 0;
-    }
-
-    input[type="range"] {
-        width: 110px;
-    }
-
-}
-
-/* =========================================
-   SMALL PHONES
-========================================= */
-
-@media (
-    max-width: 430px
-) {
-
-    .app-header {
-        flex-direction: column;
-
-        align-items: stretch;
-    }
-
-    .header-actions {
-        width: 100%;
-    }
-
-    #uploadButton {
-        width: 100%;
-    }
-
-    .video-stage {
-        height:
-            calc(
-                100vh - 285px
-            );
-
-        min-height: 200px;
-    }
-
-    .controls-panel {
         display: grid;
 
         grid-template-columns:
@@ -830,127 +1044,137 @@ body.tracking-mode .tracker.locked {
             );
     }
 
-    .control-group {
+    .tracker-controls
+    .control-button {
         width: 100%;
     }
 
-    .control-group button {
-        flex: 1;
+    .sensitivity-group {
+        width: 100%;
+
+        min-width: 0;
     }
 
-    .control-section {
+    .range {
         width: 100%;
     }
 
-    .style-buttons {
-        width: 100%;
+    .tracker-info-panel {
+        padding: 10px;
+
+        gap: 10px 16px;
+
+        justify-content: space-between;
     }
 
-    .style-buttons button {
-        flex: 1;
+    .info-item {
+        flex:
+            1 1 40%;
+
+        justify-content: space-between;
     }
 
-    .tracker-info {
-        grid-column:
-            1 / -1;
+    .editor-help {
+        padding: 10px;
+
+        align-items: flex-start;
+
+        flex-direction: column;
+
+        gap: 4px;
     }
 
 }
 
-/* =========================================
-   LANDSCAPE MOBILE
-========================================= */
+/* =========================================================
+   SMALL PHONES
+   ========================================================= */
 
-@media (
-    max-height: 500px
-) and (
-    orientation: landscape
-) {
+@media (max-width: 430px) {
 
-    .app-header {
-        min-height: 48px;
-
-        padding:
-            6px 10px;
+    .brand-title {
+        font-size: 14px;
     }
 
-    .app-title h1 {
-        font-size: 15px;
+    .top-actions
+    .button {
+        padding:
+            0 8px;
+
+        font-size: 12px;
     }
 
     .video-stage {
         height:
-            calc(
-                100vh - 150px
-            );
+            48vh;
 
-        min-height: 180px;
+        min-height: 200px;
     }
 
-    .controls-panel {
+    .control-button {
+        min-height: 40px;
+
         padding:
-            6px 10px;
+            0 8px;
 
-        gap: 6px;
+        font-size: 12px;
+    }
+
+    .select {
+        min-width: 100px;
+    }
+
+    .tracker-info-panel {
+        font-size: 12px;
     }
 
 }
 
-/* =========================================
-   ACCESSIBILITY
-========================================= */
+/* =========================================================
+   LANDSCAPE MOBILE
+   ========================================================= */
 
-button:focus-visible,
-select:focus-visible,
-input:focus-visible {
-    outline:
-        2px solid #ffffff;
-
-    outline-offset: 2px;
-}
-
-/* =========================================
-   SAFE AREA — iPhone
-========================================= */
-
-@supports (
-    padding:
-    env(safe-area-inset-bottom)
+@media (
+    max-width: 900px
+) and (
+    orientation: landscape
 ) {
 
-    .controls-panel {
-        padding-bottom:
-            calc(
-                18px +
-                env(
-                    safe-area-inset-bottom
-                )
+    .video-stage {
+        height:
+            min(
+                70vh,
+                600px
             );
+    }
+
+    .workspace {
+        min-height: 240px;
     }
 
 }
 
-/* =========================================
-   PREVENT TEXT SELECTION WHILE TRACKING
-========================================= */
-
-.tracker-layer,
-#overlayCanvas {
-    -webkit-user-select: none;
-    user-select: none;
-}
-
-/* =========================================
+/* =========================================================
    REDUCED MOTION
-========================================= */
+   ========================================================= */
 
 @media (
     prefers-reduced-motion: reduce
 ) {
 
-    * {
-        transition: none !important;
-        animation: none !important;
+    *,
+    *::before,
+    *::after {
+
+        animation-duration:
+            0.01ms !important;
+
+        animation-iteration-count:
+            1 !important;
+
+        transition-duration:
+            0.01ms !important;
+
     }
 
 }

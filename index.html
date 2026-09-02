@@ -13,7 +13,7 @@
         content="#111111"
     >
 
-    <title>Video Object Tracker</title>
+    <title>Object Tracker</title>
 
     <link
         rel="stylesheet"
@@ -23,36 +23,36 @@
 
 <body>
 
-    <!-- =================================
-         APP
-    ================================== -->
-
     <main id="app">
 
-        <!-- =================================
-             HEADER
-        ================================== -->
+        <!-- =========================================
+             TOP BAR
+        ========================================== -->
 
-        <header class="app-header">
+        <header class="topbar">
 
-            <div class="app-title">
-
-                <h1>Video Object Tracker</h1>
-
-                <span id="trackingStatus">
-                    Ready
+            <div class="brand">
+                <span class="brand-title">
+                    Object Tracker
                 </span>
 
+                <span
+                    id="trackingStatus"
+                    class="status status-idle"
+                >
+                    Ready
+                </span>
             </div>
 
-            <div class="header-actions">
 
-                <button
-                    id="uploadButton"
-                    type="button"
+            <div class="top-actions">
+
+                <label
+                    class="button primary"
+                    for="videoInput"
                 >
                     Upload Video
-                </button>
+                </label>
 
                 <input
                     id="videoInput"
@@ -61,465 +61,463 @@
                     hidden
                 >
 
+                <button
+                    id="editModeButton"
+                    class="button"
+                    type="button"
+                >
+                    Edit
+                </button>
+
             </div>
 
         </header>
 
 
-        <!-- =================================
-             MAIN CONTENT
-        ================================== -->
+        <!-- =========================================
+             MAIN WORKSPACE
+        ========================================== -->
 
-        <section class="workspace">
+        <section
+            id="workspace"
+            class="workspace"
+        >
 
-            <!-- =================================
-                 VIDEO AREA
-            ================================== -->
+            <!--
+                This is the coordinate container.
+
+                Video + tracker overlay use the same
+                coordinate system.
+            -->
 
             <div
-                id="stage"
+                id="videoStage"
                 class="video-stage"
             >
 
                 <video
                     id="video"
+                    class="video"
                     playsinline
                     preload="metadata"
                 ></video>
 
-                <!--
-                    Transparent canvas placed directly
-                    over the displayed video.
-                -->
-
-                <canvas
-                    id="overlayCanvas"
-                ></canvas>
 
                 <!--
-                    Tracker DOM layer.
-
-                    tracker.js can use this layer for
-                    interactive tracker controls.
+                    Trackers are inserted here by tracker.js
                 -->
 
                 <div
                     id="trackerLayer"
                     class="tracker-layer"
+                    aria-hidden="true"
                 ></div>
 
 
-                <!-- Empty state -->
+                <!-- =================================
+                     EMPTY STATE
+                ================================== -->
 
                 <div
-                    id="videoPlaceholder"
-                    class="video-placeholder"
+                    id="emptyState"
+                    class="empty-state"
                 >
 
-                    <div class="placeholder-icon">
-                        🎬
+                    <div class="empty-icon">
+                        +
                     </div>
 
-                    <div>
-                        Upload a video to start
+                    <div class="empty-title">
+                        Upload a video
                     </div>
 
-                </div>
-
-            </div>
-
-
-            <!-- =================================
-                 CONTROLS
-            ================================== -->
-
-            <div class="controls-panel">
-
-                <!-- VIDEO CONTROLS -->
-
-                <div class="control-group">
-
-                    <button
-                        id="playButton"
-                        type="button"
-                    >
-                        ▶ Play
-                    </button>
-
-                    <button
-                        id="pauseButton"
-                        type="button"
-                    >
-                        ⏸ Pause
-                    </button>
-
-                    <button
-                        id="stopButton"
-                        type="button"
-                    >
-                        ⏹ Stop
-                    </button>
-
-                </div>
-
-
-                <!-- EDIT / TRACKING -->
-
-                <div class="control-group">
-
-                    <button
-                        id="editButton"
-                        type="button"
-                        class="active"
-                    >
-                        ✏ Edit
-                    </button>
-
-                    <button
-                        id="lockButton"
-                        type="button"
-                    >
-                        🔒 Lock
-                    </button>
-
-                    <button
-                        id="unlockButton"
-                        type="button"
-                    >
-                        🔓 Unlock
-                    </button>
-
-                    <button
-                        id="deleteButton"
-                        type="button"
-                    >
-                        🗑 Delete
-                    </button>
-
-                    <button
-                        id="resetButton"
-                        type="button"
-                    >
-                        ↻ Reset
-                    </button>
-
-                </div>
-
-
-                <!-- =================================
-                     TRACKER STYLE
-                ================================== -->
-
-                <div class="control-section">
-
-                    <label>
-                        Tracker Style
-                    </label>
-
-                    <div class="style-buttons">
-
-                        <button
-                            id="squareButton"
-                            type="button"
-                            data-style="square"
-                        >
-                            □ Square
-                        </button>
-
-                        <button
-                            id="circleButton"
-                            type="button"
-                            data-style="circle"
-                        >
-                            ○ Circle
-                        </button>
-
-                        <button
-                            id="triangleButton"
-                            type="button"
-                            data-style="triangle"
-                        >
-                            △ Triangle
-                        </button>
-
+                    <div class="empty-text">
+                        Choose a video to start tracking.
                     </div>
 
                 </div>
 
 
                 <!-- =================================
-                     STYLE SELECT
+                     VIDEO LOADING
                 ================================== -->
 
-                <div class="control-section">
+                <div
+                    id="videoLoading"
+                    class="video-loading hidden"
+                    aria-hidden="true"
+                >
 
-                    <label
-                        for="styleSelect"
-                    >
-                        Shape
-                    </label>
-
-                    <select
-                        id="styleSelect"
-                    >
-
-                        <option value="square">
-                            Square
-                        </option>
-
-                        <option value="circle">
-                            Circle
-                        </option>
-
-                        <option value="triangle">
-                            Triangle
-                        </option>
-
-                    </select>
-
-                </div>
-
-
-                <!-- =================================
-                     COLOR
-                ================================== -->
-
-                <div class="control-section">
-
-                    <label
-                        for="colorPicker"
-                    >
-                        Tracker Color
-                    </label>
-
-                    <input
-                        id="colorPicker"
-                        type="color"
-                        value="#00ff66"
-                    >
-
-                </div>
-
-
-                <!-- =================================
-                     SIZE
-                ================================== -->
-
-                <div class="control-section">
-
-                    <label
-                        for="sizeSlider"
-                    >
-                        Tracker Size
-                    </label>
-
-                    <input
-                        id="sizeSlider"
-                        type="range"
-                        min="20"
-                        max="500"
-                        value="120"
-                        step="1"
-                    >
-
-                </div>
-
-
-                <!-- =================================
-                     SENSITIVITY
-                ================================== -->
-
-                <div class="control-section">
-
-                    <div class="range-label">
-
-                        <label
-                            for="sensitivitySlider"
-                        >
-                            Tracking Sensitivity
-                        </label>
-
-                        <span
-                            id="sensitivityValue"
-                        >
-                            65%
-                        </span>
-
-                    </div>
-
-                    <input
-                        id="sensitivitySlider"
-                        type="range"
-                        min="0"
-                        max="1"
-                        value="0.65"
-                        step="0.01"
-                    >
-
-                </div>
-
-
-                <!-- =================================
-                     TRACKER INFORMATION
-                ================================== -->
-
-                <div class="tracker-info">
-
-                    <div class="info-row">
-
-                        <span>
-                            Trackers
-                        </span>
-
-                        <strong
-                            id="trackerCount"
-                        >
-                            0
-                        </strong>
-
-                    </div>
-
-
-                    <div class="info-row">
-
-                        <span>
-                            Selected
-                        </span>
-
-                        <strong
-                            id="selectedTracker"
-                        >
-                            None
-                        </strong>
-
-                    </div>
-
-
-                    <div class="info-row">
-
-                        <span>
-                            Edit Mode
-                        </span>
-
-                        <strong
-                            id="editStatus"
-                        >
-                            ON
-                        </strong>
-
-                    </div>
-
-
-                    <div class="info-row">
-
-                        <span>
-                            Lock Status
-                        </span>
-
-                        <strong
-                            id="lockStatus"
-                        >
-                            —
-                        </strong>
-
-                    </div>
-
-                </div>
-
-
-                <!-- =================================
-                     TIME
-                ================================== -->
-
-                <div class="video-time">
-
-                    <span id="currentTime">
-                        00:00
-                    </span>
+                    <div class="loading-spinner"></div>
 
                     <span>
-                        /
+                        Loading video...
                     </span>
 
-                    <span id="duration">
-                        00:00
-                    </span>
+                </div>
 
+
+                <!-- =================================
+                     VIDEO ERROR
+                ================================== -->
+
+                <div
+                    id="videoError"
+                    class="video-error hidden"
+                    role="alert"
+                >
+                    Unable to load this video.
                 </div>
 
             </div>
 
         </section>
 
+
+        <!-- =========================================
+             CONTROL PANEL
+        ========================================== -->
+
+        <section
+            id="controlPanel"
+            class="control-panel"
+        >
+
+            <!-- =================================
+                 PLAYBACK
+            ================================== -->
+
+            <div class="control-group playback-controls">
+
+                <button
+                    id="playButton"
+                    class="control-button"
+                    type="button"
+                    title="Play"
+                >
+                    ▶
+                </button>
+
+
+                <button
+                    id="pauseButton"
+                    class="control-button"
+                    type="button"
+                    title="Pause"
+                >
+                    ⏸
+                </button>
+
+
+                <button
+                    id="stopButton"
+                    class="control-button"
+                    type="button"
+                    title="Stop"
+                >
+                    ■
+                </button>
+
+            </div>
+
+
+            <!-- =================================
+                 TRACKER CONTROLS
+            ================================== -->
+
+            <div class="control-group tracker-controls">
+
+                <button
+                    id="addTrackerButton"
+                    class="control-button primary"
+                    type="button"
+                >
+                    + Tracker
+                </button>
+
+
+                <button
+                    id="lockButton"
+                    class="control-button"
+                    type="button"
+                >
+                    🔒 Lock
+                </button>
+
+
+                <button
+                    id="unlockButton"
+                    class="control-button"
+                    type="button"
+                >
+                    🔓 Unlock
+                </button>
+
+
+                <button
+                    id="deleteButton"
+                    class="control-button danger"
+                    type="button"
+                >
+                    Delete
+                </button>
+
+
+                <button
+                    id="resetButton"
+                    class="control-button"
+                    type="button"
+                >
+                    Reset
+                </button>
+
+            </div>
+
+
+            <!-- =================================
+                 TRACKER STYLE
+            ================================== -->
+
+            <div class="control-group">
+
+                <label
+                    for="trackerShape"
+                    class="control-label"
+                >
+                    Shape
+                </label>
+
+
+                <select
+                    id="trackerShape"
+                    class="select"
+                >
+
+                    <option value="square">
+                        Square
+                    </option>
+
+                    <option value="circle">
+                        Circle
+                    </option>
+
+                    <option value="triangle">
+                        Triangle
+                    </option>
+
+                </select>
+
+            </div>
+
+
+            <!-- =================================
+                 COLOR
+            ================================== -->
+
+            <div class="control-group">
+
+                <label
+                    for="trackerColor"
+                    class="control-label"
+                >
+                    Color
+                </label>
+
+
+                <input
+                    id="trackerColor"
+                    class="color-input"
+                    type="color"
+                    value="#ff0000"
+                >
+
+            </div>
+
+
+            <!-- =================================
+                 SENSITIVITY
+            ================================== -->
+
+            <div class="control-group sensitivity-group">
+
+                <label
+                    for="sensitivity"
+                    class="control-label"
+                >
+                    Sensitivity
+
+                    <span
+                        id="sensitivityValue"
+                        class="value"
+                    >
+                        0.65
+                    </span>
+
+                </label>
+
+
+                <input
+                    id="sensitivity"
+                    class="range"
+                    type="range"
+                    min="0"
+                    max="1"
+                    step="0.01"
+                    value="0.65"
+                >
+
+            </div>
+
+        </section>
+
+
+        <!-- =========================================
+             TRACKER INFORMATION
+        ========================================== -->
+
+        <section
+            id="trackerInfoPanel"
+            class="tracker-info-panel"
+        >
+
+            <div class="info-item">
+
+                <span class="info-label">
+                    Trackers
+                </span>
+
+                <span
+                    id="trackerCount"
+                    class="info-value"
+                >
+                    0
+                </span>
+
+            </div>
+
+
+            <div class="info-item">
+
+                <span class="info-label">
+                    Selected
+                </span>
+
+                <span
+                    id="selectedTracker"
+                    class="info-value"
+                >
+                    None
+                </span>
+
+            </div>
+
+
+            <div class="info-item">
+
+                <span class="info-label">
+                    Locked
+                </span>
+
+                <span
+                    id="lockedTracker"
+                    class="info-value"
+                >
+                    None
+                </span>
+
+            </div>
+
+
+            <div class="info-item">
+
+                <span class="info-label">
+                    Confidence
+                </span>
+
+                <span
+                    id="confidenceValue"
+                    class="info-value"
+                >
+                    0%
+                </span>
+
+            </div>
+
+        </section>
+
+
+        <!-- =========================================
+             EDITOR HELP
+        ========================================== -->
+
+        <section
+            id="editorHelp"
+            class="editor-help hidden"
+        >
+
+            <strong>
+                Edit Mode
+            </strong>
+
+            <span>
+                Add a tracker, place it over the exact
+                glass/object you want, then press Lock.
+                A locked tracker will only follow its
+                assigned target.
+            </span>
+
+        </section>
+
     </main>
 
 
-    <!-- =================================
-         JAVASCRIPT
-    ================================== -->
+    <!-- =============================================
+         JAVASCRIPT CONFIG
+    ============================================== -->
 
-    <!-- Configuration -->
-
-    <script
-        src="config.js"
-        defer
-    ></script>
+    <script src="config.js"></script>
 
 
-    <!-- Utility functions -->
+    <!-- =============================================
+         UTILITIES
+    ============================================== -->
 
-    <script
-        src="utils.js"
-        defer
-    ></script>
-
-
-    <!-- Video controller -->
-
-    <script
-        src="video.js"
-        defer
-    ></script>
+    <script src="utils.js"></script>
 
 
-    <!-- Tracker system -->
+    <!-- =============================================
+         VIDEO CONTROLLER
+    ============================================== -->
 
-    <script
-        src="tracker.js"
-        defer
-    ></script>
-
-
-    <!-- Tracking engine -->
-
-    <script
-        src="tracking-engine.js"
-        defer
-    ></script>
+    <script src="video.js"></script>
 
 
-    <!-- Background worker support -->
+    <!-- =============================================
+         TRACKER MANAGER
+    ============================================== -->
 
-    <script
-        src="tracking-worker.js"
-        defer
-    ></script>
-
-
-    <!-- UI -->
-
-    <script
-        src="ui.js"
-        defer
-    ></script>
+    <script src="tracker.js"></script>
 
 
-    <!-- Main application -->
+    <!-- =============================================
+         UI CONTROLLER
+    ============================================== -->
 
-    <script
-        src="app.js"
-        defer
-    ></script>
+    <script src="ui.js"></script>
+
+
+    <!-- =============================================
+         TRACKING ENGINE
+    ============================================== -->
+
+    <script src="tracking-engine.js"></script>
+
+
+    <!-- =============================================
+         MAIN APPLICATION
+    ============================================== -->
+
+    <script src="app.js"></script>
 
 </body>
 </html>
